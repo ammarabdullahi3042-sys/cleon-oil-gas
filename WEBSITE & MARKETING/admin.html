@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0B1018">
+  <title>CLEON | Enquiry Admin</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0B1018;--panel:#141E2D;--panel2:#10182A;--text:#F3F6FA;--muted:#A8B5C7;--line:#2A3749;--orange:#EC7624;--gold:#E0C088}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 "Segoe UI",system-ui,sans-serif}
+    button,input{font:inherit}.shell{width:min(1180px,calc(100% - 36px));margin:0 auto;padding:28px 0 64px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 0 20px;border-bottom:1px solid var(--line)}
+    .brand{color:var(--orange);font-size:1.25rem;font-weight:800;letter-spacing:.06em}.brand small{display:block;color:var(--muted);font-size:.7rem;letter-spacing:.15em}
+    h1,h2{margin:0;font-family:Georgia,serif}h1{font-size:clamp(1.8rem,4vw,2.5rem)}h2{font-size:1.2rem}.muted{color:var(--muted)}
+    .intro{margin:28px 0 20px}.intro p{margin:8px 0 0;color:var(--muted)}
+    .panel{padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+    form{display:grid;gap:13px;max-width:440px}label{display:grid;gap:6px;font-weight:600}
+    input{min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+    button{min-height:43px;padding:9px 15px;border:1px solid var(--orange);border-radius:8px;background:var(--orange);color:#10182A;font-weight:700;cursor:pointer}
+    button.secondary{border-color:var(--line);background:transparent;color:var(--text)}button:hover{filter:brightness(1.08)}button:disabled{opacity:.6;cursor:wait}
+    :focus-visible{outline:3px solid var(--gold);outline-offset:3px}.status{min-height:1.5em;margin:12px 0 0;color:var(--muted)}.status.error{color:#ff9b8f}
+    [hidden]{display:none!important}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:24px 0 14px}
+    .toolbar h2{margin-right:auto}.toolbar input{width:min(320px,100%)}.count{color:var(--muted);font-size:.9rem}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.empty{padding:26px;color:var(--muted);text-align:center}
+    table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{background:var(--panel2);color:var(--gold);font-size:.78rem;letter-spacing:.07em;text-transform:uppercase}td{overflow-wrap:anywhere}td.message{min-width:240px;white-space:pre-wrap}
+    tbody tr:hover{background:#ffffff08}.email a{color:#f3b57e}.date{white-space:nowrap;color:var(--muted);font-size:.88rem}
+    @media(max-width:600px){.shell{width:min(100% - 24px,1180px);padding-top:16px}.panel{padding:17px}.toolbar{align-items:stretch}.toolbar h2{width:100%}.toolbar input,.toolbar button{width:100%}header .brand{font-size:1.05rem}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header><a class="brand" href="index.html" style="text-decoration:none">CLEON <small>ENQUIRY ADMIN</small></a><button id="sign-out" class="secondary" type="button" hidden>Sign out</button></header>
+    <section class="intro"><h1>Contact submissions</h1><p>Sign in with your authorized CLEON admin account to review membership and newsletter enquiries.</p></section>
+    <section id="login-panel" class="panel" aria-labelledby="login-heading">
+      <h2 id="login-heading">Admin sign in</h2>
+      <form id="login-form" autocomplete="on" style="margin-top:16px">
+        <label>Email address<input name="email" type="email" autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <p id="login-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <section id="inbox" hidden>
+      <div class="toolbar"><h2>Latest submissions</h2><span id="row-count" class="count"></span><input id="search" type="search" aria-label="Search submissions" placeholder="Search name, email, service…"><button id="refresh" type="button">Refresh</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Received</th><th>Name</th><th>Email</th><th>Phone</th><th>Service</th><th>Message</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" class="empty" hidden>No submissions found.</p></div>
+      <p id="inbox-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script>
+  (() => {
+    const SUPABASE_URL = "https://efpocgthifwgzgnuwgae.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_0sjd4-0ktuqR-lCY6j8fdA_qFCqBsJn";
+    const tokenKey = "cleon-admin-access-token";
+    const loginPanel = document.getElementById("login-panel");
+    const loginForm = document.getElementById("login-form");
+    const loginStatus = document.getElementById("login-status");
+    const inbox = document.getElementById("inbox");
+    const inboxStatus = document.getElementById("inbox-status");
+    const rowsElement = document.getElementById("rows");
+    const empty = document.getElementById("empty");
+    const search = document.getElementById("search");
+    const signOutButton = document.getElementById("sign-out");
+    let accessToken = sessionStorage.getItem(tokenKey) || "";
+    let submissions = [];
+
+    function setStatus(element, message, isError = false) {
+      element.textContent = message;
+      element.classList.toggle("error", isError);
+    }
+
+    async function api(path, options = {}) {
+      const headers = new Headers(options.headers || {});
+      headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
+      if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+      const response = await fetch(`${SUPABASE_URL}${path}`, {...options, headers});
+      if (!response.ok) {
+        let message = `Supabase returned HTTP ${response.status}.`;
+        try {
+          const details = await response.json();
+          message = details.message || details.msg || details.error_description || message;
+        } catch (_) {}
+        if (response.status === 401) {
+          accessToken = "";
+          sessionStorage.removeItem(tokenKey);
+        }
+        if (response.status === 403) message = "This account is signed in but is not authorized to view enquiries. Add its user ID to public.cleon_admins and run the admin setup SQL.";
+        throw new Error(message);
+      }
+      if (response.status === 204) return null;
+      return response.json();
+    }
+
+    function displayDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+    }
+
+    function renderRows() {
+      const query = search.value.trim().toLocaleLowerCase();
+      const filtered = submissions.filter(row => [row.name, row.email, row.phone, row.service, row.message]
+        .some(value => String(value ?? "").toLocaleLowerCase().includes(query)));
+      rowsElement.replaceChildren();
+      document.getElementById("row-count").textContent = `${filtered.length} of ${submissions.length}`;
+      empty.hidden = filtered.length !== 0;
+      for (const item of filtered) {
+        const row = document.createElement("tr");
+        const values = [displayDate(item.created_at), item.name, item.email, item.phone, item.service, item.message];
+        values.forEach((value, index) => {
+          const cell = document.createElement("td");
+          cell.textContent = value == null || value === "" ? "—" : String(value);
+          if (index === 0) cell.className = "date";
+          if (index === 2) cell.className = "email";
+          if (index === 5) cell.className = "message";
+          row.appendChild(cell);
+        });
+        rowsElement.appendChild(row);
+      }
+    }
+
+    async function loadSubmissions() {
+      setStatus(inboxStatus, "Loading submissions…");
+      document.getElementById("refresh").disabled = true;
+      try {
+        const isAdmin = await api("/rest/v1/rpc/is_cleon_admin", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: "{}"
+        });
+        if (isAdmin !== true) throw new Error("This Supabase account is not on the CLEON admin allowlist.");
+        submissions = await api("/rest/v1/contact_messages?select=name,email,phone,service,message,created_at&order=created_at.desc&limit=500", {headers: {Accept: "application/json"}});
+        renderRows();
+        setStatus(inboxStatus, "Submissions loaded.");
+      } catch (error) {
+        if (!accessToken) showLogin();
+        setStatus(inboxStatus, error.message, true);
+      } finally {
+        document.getElementById("refresh").disabled = false;
+      }
+    }
+
+    function showInbox() {
+      loginPanel.hidden = true;
+      inbox.hidden = false;
+      signOutButton.hidden = false;
+      loadSubmissions();
+    }
+
+    function showLogin() {
+      inbox.hidden = true;
+      loginPanel.hidden = false;
+      signOutButton.hidden = true;
+    }
+
+    loginForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = loginForm.querySelector("button[type=submit]");
+      button.disabled = true;
+      setStatus(loginStatus, "Signing in…");
+      const fields = new FormData(loginForm);
+      try {
+        const result = await api("/auth/v1/token?grant_type=password", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({email: fields.get("email"), password: fields.get("password")})
+        });
+        accessToken = result.access_token;
+        sessionStorage.setItem(tokenKey, accessToken);
+        loginForm.reset();
+        setStatus(loginStatus, "Signed in.");
+        showInbox();
+      } catch (error) {
+        setStatus(loginStatus, error.message, true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    signOutButton.addEventListener("click", async () => {
+      const token = accessToken;
+      try {
+        if (token) await fetch(`${SUPABASE_URL}/auth/v1/logout`, {method: "POST", headers: {apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}`}});
+      } catch (_) {}
+      accessToken = "";
+      sessionStorage.removeItem(tokenKey);
+      submissions = [];
+      showLogin();
+      setStatus(loginStatus, "You are signed out.");
+    });
+
+    document.getElementById("refresh").addEventListener("click", loadSubmissions);
+    search.addEventListener("input", renderRows);
+    if (accessToken) showInbox();
+  })();
+  </script>
+</body>
+</html>
