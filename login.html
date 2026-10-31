@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
+  <title>Member sign in | CLEON Oil &amp; Gas</title>
+  <link rel="stylesheet" href="portal.css">
+  <script src="portal.js" defer></script>
+</head>
+<body data-portal-page="login">
+  <header class="site-header">
+    <a class="brand" href="index.html">CLEON <span>OIL &amp; GAS</span></a>
+    <nav aria-label="Member navigation">
+      <a href="index.html">Home</a>
+      <a href="login.html" aria-current="page">Sign in</a>
+    </nav>
+  </header>
+  <main class="wrap narrow">
+    <section class="panel">
+      <p class="eyebrow">CLEON member portal</p>
+      <h1>Sign in</h1>
+      <p class="muted">Use the member account provided by your CLEON administrator.</p>
+      <form id="login-form" class="form">
+        <label for="member-email">Email address</label>
+        <input id="member-email" name="email" type="email" autocomplete="username" required>
+        <label for="member-password">Password</label>
+        <input id="member-password" name="password" type="password" autocomplete="current-password" required>
+        <button class="button" type="submit">Sign in securely</button>
+      </form>
+      <p id="page-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer class="site-footer">CLEON Oil &amp; Gas Ltd · Flexible energy. Reliable service.</footer>
+</body>
+</html>
