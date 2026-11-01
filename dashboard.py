@@ -1,10 +1,14 @@
 """Main dark dashboard. Run this file to start the station application."""
 
 import sqlite3
+import sys
+import threading
 from datetime import date
-from tkinter import Canvas, messagebox, simpledialog
+from pathlib import Path
+from tkinter import Canvas, TclError, messagebox, simpledialog
 
 import customtkinter as ctk
+from PIL import Image
 
 from database import initialize_database
 from tank_window import TankWindow
@@ -22,10 +26,14 @@ from date_utils import (
     attach_date_picker, format_display_date, open_calendar,
     parse_flexible_date,
 )
-from report_data import expense_totals, tank_dip_variance_adjustments
-from website_sync import (
-    configuration_error, open_public_website, publish_snapshot,
+from report_data import (
+    expense_totals, tank_dip_variance_adjustments, tank_desktop_baselines,
 )
+from website_sync import (
+    configuration_error, list_pending_station_entries,
+    open_public_website, publish_snapshot, update_station_entry_result,
+)
+from website_entry_processor import import_station_entry
 from short_reconciliation import adjusted_short_over_total
 from short_reconciliation import ensure_reconciliation_schema
 from price_management import ensure_price_schema
@@ -58,6 +66,7 @@ class Dashboard(ctk.CTk):
         self.configure(fg_color=Theme.BG)
         self.kpi_value_labels = {}
         self.selected_date = date.today()
+        self._website_entry_sync_lock = threading.Lock()
         self.build_ui()
         self.pages = {"Dashboard": self.dashboard_page}
         self.active_page = "Dashboard"
@@ -70,9 +79,15 @@ class Dashboard(ctk.CTk):
                                     corner_radius=0)
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
-        ctk.CTkLabel(self.sidebar, text="CLEON\nOIL & GAS",
-                     font=("Segoe UI", 22, "bold"), text_color=Theme.TEXT,
-                     justify="left").pack(anchor="w", padx=22, pady=(28, 6))
+        logo_path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "cleon-logo-for-dark-backgrounds.png"
+        logo_image = ctk.CTkImage(
+            light_image=Image.open(logo_path),
+            dark_image=Image.open(logo_path),
+            size=(184, 68),
+        )
+        logo_label = ctk.CTkLabel(self.sidebar, image=logo_image, text="")
+        logo_label.image = logo_image
+        logo_label.pack(anchor="w", padx=18, pady=(22, 8))
         ctk.CTkLabel(self.sidebar, text="STATION OPERATIONS",
                      font=Theme.SMALL_FONT, text_color=Theme.TEXT_MUTED).pack(
                          anchor="w", padx=23, pady=(0, 25))
@@ -173,12 +188,12 @@ class Dashboard(ctk.CTk):
                      text="Net sold − (opening dip + received − closing dip)",
                      font=Theme.SMALL_FONT, text_color=Theme.TEXT_LIGHT,
                      justify="center", wraplength=220).pack(pady=(4, 8), padx=12)
-        self.tank_variance_total_label = ctk.CTkLabel(
+        self.tank_daily_variance_label = ctk.CTkLabel(
             self.gain_loss_card, text="Daily combined variance: —",
-            font=("Segoe UI", 13, "bold"), text_color=Theme.TEXT,
+            font=("Segoe UI", 12, "bold"), text_color=Theme.TEXT_LIGHT,
             anchor="center", justify="center", wraplength=220,
         )
-        self.tank_variance_total_label.pack(fill="x", padx=8, pady=(0, 4))
+        self.tank_daily_variance_label.pack(fill="x", padx=8, pady=(2, 7))
         self.tank_variances_frame = ctk.CTkScrollableFrame(
             self.gain_loss_card, fg_color="transparent",
             scrollbar_button_color=Theme.BORDER,
@@ -265,7 +280,7 @@ class Dashboard(ctk.CTk):
             )
             self.stock_warning_label.pack(anchor="w", padx=18, pady=(0, 6))
             ctk.CTkLabel(
-                card, text="Yellow segment = tank desktop (baseline)",
+                card, text="Yellow = tank desktop baseline | Station baseline sums all tanks",
                 font=Theme.SMALL_FONT, text_color="#FACC15", anchor="w",
             ).pack(anchor="w", padx=18, pady=(0, 4))
             self.tank_levels_frame = ctk.CTkScrollableFrame(
@@ -376,7 +391,23 @@ class Dashboard(ctk.CTk):
                            WHERE d.tank_id=t.id AND date(d.dip_date)<=date(?)
                            ORDER BY date(d.dip_date) DESC,d.id DESC LIMIT 1
                        ),t.current_stock,0)
-                       ,COALESCE(t.desktop_stock,0)
+                       ,COALESCE((SELECT d.closing_dip FROM tank_dips d
+                                  WHERE d.tank_id=t.id AND (
+                                      d.id=t.desktop_dip_id OR
+                                      (t.desktop_dip_id IS NULL AND
+                                       date(d.dip_date)=date(t.desktop_date))
+                                  ) ORDER BY d.id DESC LIMIT 1),
+                                 NULLIF(t.desktop_stock,0),
+                                 CASE WHEN EXISTS (
+                                     SELECT 1 FROM pump_product_runs r
+                                     JOIN pumps p ON p.id=r.pump_id
+                                     WHERE (p.tank_id=t.id OR r.tank_id=t.id)
+                                       AND r.status='CLOSED'
+                                 ) THEN (
+                                     SELECT d.closing_dip FROM tank_dips d
+                                     WHERE d.tank_id=t.id
+                                     ORDER BY date(d.dip_date) DESC,d.id DESC LIMIT 1
+                                 ) ELSE 0 END,0)
                        ,COALESCE((
                            SELECT SUM(ps.litres_sold)
                            FROM pump_sessions ps
@@ -401,15 +432,38 @@ class Dashboard(ctk.CTk):
             dip_adjustments = tank_dip_variance_adjustments(
                 conn, records_date, records_date
             )
+            metrics["daily_tank_variance"] = sum(
+                float(item.get("litres", 0) or 0)
+                for item in dip_adjustments.values()
+            )
+            tank_baselines = tank_desktop_baselines(conn)
             metrics["tank_levels"] = [
                 (
                     row[1], row[2], row[3], row[4], row[6], row[7],
                     None, row[8],
                     dip_adjustments.get(row[0], {}).get("litres"),
-                    row[5],
+                    tank_baselines.get(row[0], {}).get("litres", row[5]),
                 )
                 for row in tank_level_rows
             ]
+            first_dip_date = conn.execute(
+                "SELECT MIN(date(dip_date)) FROM tank_dips "
+                "WHERE date(dip_date)<=date(?)", (records_date,)
+            ).fetchone()[0]
+            cumulative_adjustments = tank_dip_variance_adjustments(
+                conn, first_dip_date or records_date, records_date
+            )
+            metrics["station_baseline"] = sum(
+                item["litres"] for item in tank_baselines.values()
+            )
+            metrics["station_variance"] = sum(
+                item["litres"] for item in cumulative_adjustments.values()
+            )
+            metrics["true_variance"] = sum(
+                float(cumulative_adjustments.get(tank_id, {}).get("litres", 0) or 0)
+                - float(tank_baselines.get(tank_id, {}).get("litres", 0) or 0)
+                for tank_id in tank_baselines
+            )
             metrics["low_stock_tanks"] = conn.execute("""
                 SELECT t.tank_number, t.product,
                        COALESCE((SELECT d.closing_dip FROM tank_dips AS d
@@ -507,7 +561,9 @@ class Dashboard(ctk.CTk):
             displayed_short_over, m["expected_sales"]
         )
         self.render_tank_levels(m.get("tank_levels", []))
-        self.render_tank_variances(m.get("tank_levels", []))
+        self.render_tank_variances(
+            m.get("tank_levels", []), m.get("daily_tank_variance", 0),
+        )
         self.render_selling_prices(m.get("selling_prices", []))
         cash_color = (
             Theme.DANGER if displayed_short_over < 0 else
@@ -558,6 +614,7 @@ class Dashboard(ctk.CTk):
                     text="No tanks have been added.",
                     text_color=Theme.TEXT_LIGHT
                 )
+        self._apply_dashboard_typography(self.dashboard_page)
         self.website_sync_status.configure(text="Publishing dashboard…")
         publish_snapshot(
             self, "dashboard",
@@ -567,6 +624,29 @@ class Dashboard(ctk.CTk):
             },
             self._website_sync_result,
         )
+
+    def _apply_dashboard_typography(self, parent):
+        """Bold text-bearing widgets on the dashboard without changing sizes."""
+        for widget in parent.winfo_children():
+            try:
+                font = widget.cget("font")
+                if isinstance(font, (tuple, list)) and len(font) >= 2:
+                    family, size = font[0], font[1]
+                    attributes = tuple(font[2:])
+                elif hasattr(font, "cget"):
+                    family = font.cget("family")
+                    size = font.cget("size")
+                    attributes = ()
+                else:
+                    family = size = None
+                    attributes = ()
+                if family and size and not any(
+                    str(item).lower() == "bold" for item in attributes
+                ):
+                    widget.configure(font=(family, size, *attributes, "bold"))
+            except (AttributeError, TypeError, ValueError, TclError):
+                pass
+            self._apply_dashboard_typography(widget)
 
     def _website_sync_result(self, message, success):
         self.website_sync_status.configure(
@@ -583,6 +663,7 @@ class Dashboard(ctk.CTk):
             self.bind("<Destroy>", self._close_website_db_watch, add="+")
             self._ensure_website_report_page()
             self.after(5000, self._poll_website_db)
+            self.after(12000, self._sync_website_entries)
         except sqlite3.Error as error:
             self.website_sync_status.configure(
                 text=f"Could not start automatic website updates: {error}",
@@ -623,31 +704,70 @@ class Dashboard(ctk.CTk):
         if self.winfo_exists():
             self.after(5000, self._poll_website_db)
 
-    def render_tank_variances(self, tanks):
+    def _sync_website_entries(self):
+        if not self.winfo_exists():
+            return
+        if not self._website_entry_sync_lock.acquire(blocking=False):
+            self.after(20000, self._sync_website_entries)
+            return
+
+        def sync():
+            imported = 0
+            rejected = 0
+            try:
+                for entry in list_pending_station_entries():
+                    try:
+                        note = import_station_entry(entry, DATABASE)
+                    except Exception as error:
+                        update_station_entry_result(entry.get("entry_id", ""), "rejected", str(error))
+                        rejected += 1
+                    else:
+                        update_station_entry_result(entry.get("entry_id", ""), "accepted", note)
+                        imported += 1
+                message = f"Website sync: {imported} imported, {rejected} needs correction."
+                success = True
+            except Exception as error:
+                message = f"Website entry sync unavailable: {error}"
+                success = False
+            finally:
+                self._website_entry_sync_lock.release()
+            try:
+                self.after(0, self._website_entry_sync_result, message, success, imported)
+            except TclError:
+                pass
+
+        threading.Thread(target=sync, daemon=True).start()
+        self.after(20000, self._sync_website_entries)
+
+    def _website_entry_sync_result(self, message, success, imported=0):
+        if success and imported:
+            self.refresh_dashboard()
+            reports = self.pages.get("Reports Centre")
+            if reports is not None:
+                reports.refresh_reports()
+        self.website_sync_status.configure(
+            text=message,
+            text_color=Theme.SUCCESS if success else Theme.DANGER,
+        )
+
+    def render_tank_variances(self, tanks, daily_variance=0):
         for child in self.tank_variances_frame.winfo_children():
             child.destroy()
+        variance_color = (
+            Theme.SUCCESS if daily_variance > 0 else
+            Theme.DANGER if daily_variance < 0 else Theme.TEXT_LIGHT
+        )
+        self.tank_daily_variance_label.configure(
+            text=f"Daily combined variance: {daily_variance:+,.2f} L",
+            text_color=variance_color,
+        )
         if not tanks:
-            self.tank_variance_total_label.configure(
-                text="Daily combined variance: —", text_color=Theme.TEXT_LIGHT
-            )
             ctk.CTkLabel(
                 self.tank_variances_frame,
                 text="No tanks to calculate.",
                 font=Theme.SMALL_FONT, text_color=Theme.TEXT_MUTED,
             ).pack(anchor="w", padx=6, pady=4)
             return
-        variances = [
-            float(tank[8]) for tank in tanks if tank[8] is not None
-        ]
-        combined = sum(variances)
-        total_color = (
-            Theme.DANGER if combined < 0 else
-            Theme.SUCCESS if combined > 0 else Theme.TEXT_LIGHT
-        )
-        self.tank_variance_total_label.configure(
-            text=f"Daily combined variance: {combined:+,.2f} L",
-            text_color=total_color,
-        )
         for tank in tanks:
             tank_number, product = tank[0], tank[1]
             sold, closing_dip, variance = tank[4], tank[7], tank[8]
@@ -662,10 +782,10 @@ class Dashboard(ctk.CTk):
                 color = Theme.TEXT_LIGHT
             elif variance > 0:
                 text = f"{tank_number} {product}: overage +{variance:,.2f} L"
-                color = Theme.SUCCESS
+                color = "#16A34A"
             elif variance < 0:
                 text = f"{tank_number} {product}: shortage {variance:,.2f} L"
-                color = Theme.DANGER
+                color = "#EF4444"
             else:
                 text = f"{tank_number} {product}: no overage/shortage (0.00 L)"
                 color = Theme.TEXT_LIGHT
@@ -691,8 +811,10 @@ class Dashboard(ctk.CTk):
             capacity, stock, desktop = tank[2], tank[3], tank[9]
             capacity = max(float(capacity or 0), 0.0)
             stock = max(float(stock or 0), 0.0)
-            fraction = min(stock / capacity, 1.0) if capacity else 0.0
-            desktop = min(max(float(desktop or 0), 0.0), stock)
+            desktop = max(float(desktop or 0), 0.0)
+            displayed_stock = max(stock, desktop)
+            fraction = min(displayed_stock / capacity, 1.0) if capacity else 0.0
+            desktop = min(desktop, capacity) if capacity else desktop
             desktop_fraction = min(desktop / capacity, fraction) if capacity else 0.0
             fill_width = 103 * fraction
             if desktop > 0 and fill_width > 0:
@@ -737,7 +859,9 @@ class Dashboard(ctk.CTk):
                 row,
                 text=(
                     f"{stock:,.0f} / {capacity:,.0f} L"
-                    + (f" | Desktop {desktop:,.0f} L" if desktop > 0 else "")
+                    + f" | Baseline {desktop:,.0f} L"
+                    + (f" | True variance {float(tank[8] or 0)-desktop:+,.0f} L"
+                       if tank[8] is not None else " | True variance pending dip")
                 ),
                 font=Theme.SMALL_FONT,
                 text_color=Theme.TEXT_LIGHT,

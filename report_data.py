@@ -11,9 +11,11 @@ from short_reconciliation import (
 
 
 PRODUCT_REPORT_HEADERS = (
-    "Date/period", "Receipt", "Gross meter", "RTT", "Gain/loss (litres)",
-    "Dip variance estimate (not profit) (NGN)", "Cost", "Sales", "Expenses",
-    "Short/over", "Profit/(loss)",
+    "Date / lifecycle", "Receipt / run", "Received (L)", "Net sold (L)",
+    "RTT (L)", "Cash (NGN)", "POS (NGN)", "Sales (NGN)",
+    "Fuel cost (NGN)", "Gross profit (NGN)", "Pump expenses (NGN)",
+    "Attendant short (NGN)", "Delivery shortage (L / NGN)", "Tank true variance (L)",
+    "Dip variance value (NGN)", "Net profit (NGN)",
 )
 
 
@@ -29,7 +31,8 @@ def expense_report_rows(conn, start, end):
             WHERE date(expense_date) BETWEEN date(?) AND date(?)
             ORDER BY date(expense_date),id
         """, (start, end)):
-            rows.append((day, "Expense session", description, float(amount or 0)))
+            rows.append((day, "Expense session",
+                        description, float(amount or 0)))
 
     if conn.execute("""
         SELECT 1 FROM sqlite_master WHERE type='table' AND name='pump_sessions'
@@ -97,6 +100,58 @@ def expense_report_rows(conn, start, end):
 
 def expense_totals(conn, start, end):
     return sum(row[3] for row in expense_report_rows(conn, start, end))
+
+
+def tank_desktop_baselines(conn):
+    """Resolve each tank's saved desktop dip and weighted baseline cost."""
+    from fifo_inventory import baseline_cost_for_stock
+
+    result = {}
+    tanks = conn.execute("""
+        SELECT id,COALESCE(product,''),COALESCE(desktop_stock,0),
+               COALESCE(desktop_cost,0),desktop_date,desktop_dip_id
+        FROM tanks ORDER BY id
+    """).fetchall()
+    for tank_id, product, stock, cost, desktop_date, dip_id in tanks:
+        baseline_stock = float(stock or 0)
+        if dip_id:
+            row = conn.execute(
+                "SELECT closing_dip,dip_date FROM tank_dips WHERE id=? AND tank_id=?",
+                (dip_id, tank_id),
+            ).fetchone()
+        else:
+            row = None
+        if row is None and desktop_date:
+            row = conn.execute("""
+                SELECT closing_dip,dip_date FROM tank_dips
+                WHERE tank_id=? AND date(dip_date)=date(?)
+                ORDER BY id DESC LIMIT 1
+            """, (tank_id, desktop_date)).fetchone()
+        if row is None and baseline_stock <= 0:
+            closed = conn.execute("""
+                SELECT MAX(date(finished_at)) FROM pump_product_runs r
+                JOIN pumps p ON p.id=r.pump_id
+                WHERE (p.tank_id=? OR r.tank_id=?) AND r.status='CLOSED'
+            """, (tank_id, tank_id)).fetchone()[0]
+            if closed:
+                row = conn.execute("""
+                    SELECT closing_dip,dip_date FROM tank_dips
+                    WHERE tank_id=? AND date(dip_date)<=date(?)
+                    ORDER BY date(dip_date) DESC,id DESC LIMIT 1
+                """, (tank_id, closed)).fetchone()
+        if row:
+            baseline_stock = float(row[0] or 0)
+            baseline_date = row[1]
+            try:
+                baseline_cost = baseline_cost_for_stock(
+                    conn.cursor(), product, baseline_stock, baseline_date
+                )
+            except ValueError:
+                baseline_cost = float(cost or 0)
+        else:
+            baseline_cost = float(cost or 0)
+        result[tank_id] = {"litres": baseline_stock, "cost": baseline_cost}
+    return result
 
 
 def tank_dip_variance_events(conn, tank_id, end):
@@ -243,13 +298,101 @@ def tank_dip_variance_adjustments(conn, start, end, tank_id=None):
                     f"on {event['date']}, so tank dip overage/shortage cannot be valued."
                 )
             adjustment = adjustments.setdefault(
-                tank_id, {"litres": 0.0, "amount": 0.0}
+                tank_id,
+                {
+                    "litres": 0.0,
+                    "amount": 0.0,
+                },
             )
             adjustment["litres"] += variance_litres
             adjustment["amount"] += (
-                variance_litres * float(price[0]) if price else 0.0
+                variance_litres * float(price[0])
+                if price else 0.0
             )
     return adjustments
+
+
+def ensure_tank_dip_reconciliation_schema(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tank_dip_reconciliations (
+            dip_id INTEGER PRIMARY KEY,
+            tank_id INTEGER NOT NULL,
+            classification TEXT NOT NULL CHECK(classification IN ('GAIN','LOSS')),
+            variance_litres REAL NOT NULL,
+            unit_price REAL NOT NULL,
+            profit_amount REAL NOT NULL,
+            notes TEXT NOT NULL DEFAULT '',
+            reconciled_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+def reconcile_tank_dip_variance(conn, tank_id, dip_id, notes=''):
+    """Reconcile from stock movement sign: positive is gain, negative loss."""
+    ensure_tank_dip_reconciliation_schema(conn)
+    dip = conn.execute(
+        "SELECT dip_date FROM tank_dips WHERE id=? AND tank_id=?",
+        (dip_id, tank_id),
+    ).fetchone()
+    if not dip:
+        raise ValueError("The selected dip was not found for this tank.")
+    event = next((item for item in tank_dip_variance_events(
+        conn, tank_id, dip[0]
+    ) if item['id'] == dip_id), None)
+    if not event or event['variance'] is None:
+        raise ValueError("This dip has no calculated variance to reconcile.")
+    product = conn.execute(
+        "SELECT product FROM tanks WHERE id=?", (tank_id,)
+    ).fetchone()[0]
+    run = conn.execute("""
+        SELECT product FROM pump_product_runs
+        WHERE tank_id=? AND date(started_at)<=date(?)
+        ORDER BY date(started_at) DESC,id DESC LIMIT 1
+    """, (tank_id, dip[0])).fetchone()
+    product = run[0] if run and run[0] else product
+    from price_management import ensure_price_schema
+    ensure_price_schema(conn)
+    price = conn.execute("""
+        SELECT price_per_litre FROM product_prices
+        WHERE UPPER(TRIM(product))=UPPER(TRIM(?))
+          AND date(effective_date)<=date(?)
+        ORDER BY date(effective_date) DESC,id DESC LIMIT 1
+    """, (product, dip[0])).fetchone()
+    if not price:
+        raise ValueError(
+            f"No selling price is recorded for {product or 'this product'} "
+            f"on {dip[0]}, so the variance cannot be valued."
+        )
+    variance_litres = float(event['variance'])
+    if abs(variance_litres) <= 0.000001:
+        raise ValueError("The selected dip has no non-zero variance to reconcile.")
+    classification = 'GAIN' if variance_litres > 0 else 'LOSS'
+    amount = variance_litres * float(price[0])
+    conn.execute("""
+        INSERT INTO tank_dip_reconciliations(
+            dip_id,tank_id,classification,variance_litres,unit_price,
+            profit_amount,notes,reconciled_at
+        ) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+        ON CONFLICT(dip_id) DO UPDATE SET
+            classification=excluded.classification,
+            variance_litres=excluded.variance_litres,
+            unit_price=excluded.unit_price,
+            profit_amount=excluded.profit_amount,
+            notes=excluded.notes,
+            reconciled_at=CURRENT_TIMESTAMP
+    """, (dip_id, tank_id, classification, abs(variance_litres), float(price[0]), amount,
+          str(notes or '').strip()))
+    return amount
+
+
+def reconciled_tank_dip_profit(conn, start, end):
+    ensure_tank_dip_reconciliation_schema(conn)
+    return float(conn.execute("""
+        SELECT COALESCE(SUM(r.profit_amount),0)
+        FROM tank_dip_reconciliations r
+        JOIN tank_dips d ON d.id=r.dip_id AND d.tank_id=r.tank_id
+        WHERE date(d.dip_date) BETWEEN date(?) AND date(?)
+    """, (start, end)).fetchone()[0] or 0)
 
 
 def profit_adjustments(conn, start, end):
@@ -277,6 +420,7 @@ def profit_adjustments(conn, start, end):
         item["amount"]
         for item in tank_dip_variance_adjustments(conn, start, end).values()
     )
+
     return (
         max(float(short_amount or 0) - float(reconciled or 0), 0),
         float(delivery_loss or 0),
@@ -285,204 +429,106 @@ def profit_adjustments(conn, start, end):
 
 
 def product_delivery_report(database, start, end):
-    """Return eleven columns, one row per product/tank and period."""
+    """Return one Product/Delivery row per receipt and its linked run lifecycle."""
     with sqlite3.connect(database, timeout=15) as conn:
         conn.row_factory = sqlite3.Row
         ensure_pump_run_schema(conn)
         ensure_reconciliation_schema(conn)
         ensure_account_schema(conn)
-        dip_adjustments = tank_dip_variance_adjustments(conn, start, end)
-        product_tanks = conn.execute("""
+        tanks = conn.execute("""
             SELECT id,COALESCE(tank_number,''),COALESCE(product,''),
                    COALESCE(current_stock,0)
             FROM tanks ORDER BY product,tank_number,id
         """).fetchall()
         rows = []
-        product_rows = []
-        for tank_id, tank_number, product, current_stock in product_tanks:
+        summaries = []
+        for tank_id, tank_number, product, current_stock in tanks:
             receipts = conn.execute("""
                 SELECT id,receipt_date,invoice_number,delivery_note,
                        COALESCE(invoice_quantity,quantity_received) invoice_l,
                        COALESCE(quantity_received,0) received_l,
                        COALESCE(total_cost,0) total_cost,
                        COALESCE(cost_price,0) cost_price,
-                       COALESCE(short_over_litres,0) variance_l
+                       COALESCE(short_over_litres,0) delivery_short_l,
+                       COALESCE(variance_value,0) delivery_short_cost
                 FROM fuel_receipts
                 WHERE tank_id=? AND date(receipt_date) BETWEEN date(?) AND date(?)
                 ORDER BY date(receipt_date),id
             """, (tank_id, start, end)).fetchall()
-            sessions = conn.execute("""
-                SELECT ps.id,ps.run_id,ps.opening_meter,ps.closing_meter,
-                       COALESCE(ps.litres_sold,0) sold,
-                       COALESCE(ps.rtt_litres,0) rtt,
-                       COALESCE(ps.rtt_cost,
-                           COALESCE(ps.rtt_litres,0)*
-                           COALESCE(ps.average_cost_per_litre,0)) rtt_cost,
-                       COALESCE(ps.sale_amount,0) sales,
-                       COALESCE(ps.cost_of_goods_sold,0) cogs,
-                       COALESCE(ps.gross_profit,0) gross_profit,
-                       COALESCE(ps.expenses,0) expenses,
-                       COALESCE(ps.short_over,0) short_over,
-                       COALESCE(p.pump_number,'') pump
-                FROM pump_sessions ps
-                JOIN pumps p ON p.id=ps.pump_id
-                WHERE p.tank_id=? AND date(ps.session_date)
-                      BETWEEN date(?) AND date(?)
-                  AND ps.run_id IN (
-                    SELECT DISTINCT rr.run_id FROM pump_run_receipts rr
-                    JOIN fuel_receipts fr ON fr.id=rr.receipt_id
-                    WHERE fr.tank_id=?
-                  )
-                ORDER BY date(ps.session_date),ps.id
-            """, (tank_id, start, end, tank_id)).fetchall()
-            if not receipts and not sessions and tank_id not in dip_adjustments:
-                continue
-
-            receipt_ids = [row["id"] for row in receipts]
-            receipt_label = ", ".join(
-                f"#{row['id']} {row['invoice_number'] or row['delivery_note'] or ''}".strip()
-                for row in receipts
-            ) or "No linked receipt in period"
-            received = sum(float(row["received_l"] or 0) for row in receipts)
-            net_sold = sum(float(row["sold"] or 0) for row in sessions)
-            gross_meter = sum(
-                float(row["closing_meter"] or 0) -
-                float(row["opening_meter"] or 0)
-                for row in sessions
-            )
-            rtt_litres = sum(float(row["rtt"] or 0) for row in sessions)
-            rtt_cost = sum(float(row["rtt_cost"] or 0) for row in sessions)
-            sales = sum(float(row["sales"] or 0) for row in sessions)
-            cogs = sum(float(row["cogs"] or 0) for row in sessions)
-            gross_profit = sum(float(row["gross_profit"] or 0) for row in sessions)
-            session_expenses = sum(float(row["expenses"] or 0) for row in sessions)
-            session_short = sum(
-                max(-float(row["short_over"] or 0), 0) for row in sessions
-            )
-            session_ids = [row["id"] for row in sessions]
-            signed_short_over = sum(
-                adjusted_session_short_over(
-                    conn, row["id"], row["short_over"], end
-                )
-                for row in sessions
-            )
-
-            if receipt_ids:
-                marks = ",".join("?" for _ in receipt_ids)
-                settlement = conn.execute(f"""
-                    SELECT COALESCE(SUM(station_borne_cost),0)
+            for receipt in receipts:
+                run_rows = conn.execute("""
+                    SELECT DISTINCT r.id,r.status,r.finished_at
+                    FROM pump_run_receipts rr
+                    JOIN pump_product_runs r ON r.id=rr.run_id
+                    WHERE rr.receipt_id=? ORDER BY r.id
+                """, (receipt['id'],)).fetchall()
+                run_ids = [r['id'] for r in run_rows]
+                if not run_ids:
+                    continue
+                finish_dates = [str(r['finished_at'] or '')[:10] for r in run_rows if r['status']=='CLOSED' and r['finished_at']]
+                lifecycle_end = min([end] + finish_dates) if finish_dates else end
+                marks = ','.join('?' for _ in run_ids)
+                sessions = conn.execute(f"""
+                    SELECT ps.id,ps.opening_meter,ps.closing_meter,
+                           COALESCE(ps.litres_sold,0) sold,
+                           COALESCE(ps.rtt_litres,0) rtt,
+                           COALESCE(ps.rtt_cost,COALESCE(ps.rtt_litres,0)*COALESCE(ps.average_cost_per_litre,0)) rtt_cost,
+                           COALESCE(ps.cash_collected,0) cash,
+                           COALESCE(ps.pos_amount,0) pos,
+                           COALESCE(ps.sale_amount,0) sales,
+                           COALESCE(ps.cost_of_goods_sold,0) cogs,
+                           COALESCE(ps.expenses,0) expenses,
+                           COALESCE(ps.short_over,0) short_over
+                    FROM pump_sessions ps
+                    WHERE ps.run_id IN ({marks})
+                      AND date(ps.session_date)>=date(?)
+                      AND date(ps.session_date)<=date(?)
+                    ORDER BY date(ps.session_date),ps.id
+                """, (*run_ids, receipt['receipt_date'], lifecycle_end)).fetchall()
+                session_ids = [r['id'] for r in sessions]
+                sold = sum(float(r['sold'] or 0) for r in sessions)
+                gross_meter = sum(float(r['closing_meter'] or 0)-float(r['opening_meter'] or 0) for r in sessions)
+                rtt = sum(float(r['rtt'] or 0) for r in sessions)
+                cash = sum(float(r['cash'] or 0) for r in sessions)
+                pos = sum(float(r['pos'] or 0) for r in sessions)
+                sales = sum(float(r['sales'] or 0) for r in sessions)
+                cogs = sum(float(r['cogs'] or 0) for r in sessions)
+                expenses = sum(float(r['expenses'] or 0) for r in sessions)
+                short = sum(adjusted_session_short_over(conn,r['id'],r['short_over'],lifecycle_end) for r in sessions)
+                settlement = conn.execute("""
+                    SELECT COALESCE(SUM(station_borne_cost),0),COALESCE(SUM(station_borne_litres),0),
+                           COALESCE(SUM(reconciled_cost),0),COALESCE(SUM(reconciled_litres),0)
                     FROM receipt_short_reconciliations
-                    WHERE receipt_id IN ({marks})
-                      AND date(settlement_date)<=date(?)
-                """, (*receipt_ids, end)).fetchone()
-                station_loss = float(settlement[0] or 0)
-            else:
-                station_loss = 0.0
-            reconciled_session_short = 0.0
-            if session_ids:
-                marks = ",".join("?" for _ in session_ids)
-                reconciled_session_short = float(conn.execute(f"""
-                    SELECT COALESCE(SUM(sa.amount),0)
-                    FROM attendant_short_allocations sa
-                    JOIN attendant_short_reconciliations r
-                      ON r.id=sa.reconciliation_id
-                    WHERE sa.session_id IN ({marks})
-                      AND date(r.recovery_date)<=date(?)
-                """, (*session_ids, end)).fetchone()[0] or 0)
-            session_short_loss = max(session_short - reconciled_session_short, 0)
-            dip_adjustment = dip_adjustments.get(tank_id)
-            gain_loss = dip_adjustment["litres"] if dip_adjustment else None
-            dip_profit_loss = dip_adjustment["amount"] if dip_adjustment else 0.0
-
-            # Session net litres already subtract RTT from meter movement.
-            # RTT remains a separate litre metric and is not subtracted again
-            # from monetary profit. Reconciled attendant shorts reduce the
-            # outstanding short; station-borne delivery cost remains a loss.
-            product_expenses = session_expenses
-            product_profit = (
-                sales - cogs - session_short_loss - station_loss
-                - product_expenses
-            )
-            reported_expenses = product_expenses + station_loss
-            short_label = f"NGN {signed_short_over:+,.2f}"
-            product_rows.append({
-                "tank_id": tank_id, "tank": tank_number, "product": product,
-                "receipt_ids": receipt_ids, "receipt_label": receipt_label,
-                "gross": gross_meter, "rtt_litres": rtt_litres,
-                "gain_loss": gain_loss, "dip_profit_loss": dip_profit_loss,
-                "cost": cogs, "receipt_cost": max(
-                    sum(float(row["total_cost"] or 0) for row in receipts)
-                    + station_loss, 0
-                ), "sales": sales,
-                "expenses": reported_expenses, "short_label": short_label,
-                "signed_short_over": signed_short_over,
-                "profit": product_profit, "received": received,
-                "sold": net_sold, "stock": float(current_stock or 0),
-                "rtt_cost": rtt_cost, "cogs": cogs,
-                "gross_profit": gross_profit, "station_loss": station_loss,
-                "session_short": session_short,
-                "recovered_short": reconciled_session_short,
-                "reconciled_short": reconciled_session_short,
-                "session_short_loss": session_short_loss,
-                "session_ids": [r["id"] for r in sessions],
-            })
-            rows.append((
-                f"{format_display_date(start)} to {format_display_date(end)}",
-                f"{product} / {tank_number}: {receipt_label}",
-                f"{gross_meter:,.2f} L", f"{rtt_litres:,.2f} L",
-                ("Baseline only" if gain_loss is None
-                 else f"{gain_loss:+,.2f} L"),
-                f"NGN {dip_profit_loss:+,.2f}",
-                f"NGN {cogs:,.2f}",
-                f"NGN {sales:,.2f}", f"NGN {reported_expenses:,.2f}",
-                short_label, f"NGN {product_profit:,.2f}",
-            ))
-
-        # General expenses without a reliable tank/product relationship remain
-        # visible as a distinct period row instead of being copied to each product.
-        expense_rows = expense_report_rows(conn, start, end)
-        unallocated_expenses = sum(
-            value for _day, source, _description, value in expense_rows
-            if source != "Pump session"
-        )
-        if unallocated_expenses:
-            rows.append((
-                f"{start} to {end}",                 "UNALLOCATED PERIOD EXPENSES", "", "", "", "", "", "",
-                f"NGN {unallocated_expenses:,.2f}", "", "",
-            ))
-        if product_rows:
-            total_gross = sum(row["gross"] for row in product_rows)
-            total_rtt = sum(row["rtt_litres"] for row in product_rows)
-            total_gain = sum(
-                row["gain_loss"] or 0 for row in product_rows
-            )
-            total_dip_profit_loss = sum(
-                row["dip_profit_loss"] for row in product_rows
-            )
-            total_cogs = sum(row["cogs"] for row in product_rows)
-            total_sales = sum(row["sales"] for row in product_rows)
-            total_short = sum(
-                row["signed_short_over"]
-                for row in product_rows
-            )
-            total_profit = sum(row["profit"] for row in product_rows) - unallocated_expenses
-            total_operating_expenses = sum(
-                row["expenses"] for row in product_rows
-            ) + unallocated_expenses
-            rows.append((
-                f"{format_display_date(start)} to {format_display_date(end)}",
-                "PERIOD TOTAL (see product rows)",
-                f"{total_gross:,.2f} L", f"{total_rtt:,.2f} L",
-                f"{total_gain:+,.2f} L",
-                f"NGN {total_dip_profit_loss:+,.2f}",
-                f"NGN {total_cogs:,.2f}",
-                f"NGN {total_sales:,.2f}",
-                f"NGN {total_operating_expenses:,.2f}",
-                f"NGN {total_short:+,.2f}",
-                f"NGN {total_profit:,.2f}",
-            ))
+                    WHERE receipt_id=? AND date(settlement_date)<=date(?)
+                """, (receipt['id'], lifecycle_end)).fetchone()
+                delivery_loss=float(settlement[0] or 0)
+                delivery_short_l=float(receipt['delivery_short_l'] or 0)
+                delivery_short_cost=float(receipt['delivery_short_cost'] or 0)
+                dip=tank_dip_variance_adjustments(conn,receipt['receipt_date'],lifecycle_end,tank_id=tank_id).get(tank_id,{})
+                tank_baseline=float(conn.execute(
+                    "SELECT COALESCE(desktop_stock,0) FROM tanks WHERE id=?",(tank_id,)
+                ).fetchone()[0] or 0)
+                variance=float(dip.get('litres',0))-tank_baseline
+                variance_value=float(dip.get('amount',0))
+                recovered=0.0
+                if session_ids:
+                    smarks=','.join('?' for _ in session_ids)
+                    recovered=float(conn.execute(f"""
+                        SELECT COALESCE(SUM(sa.amount),0) FROM attendant_short_allocations sa
+                        JOIN attendant_short_reconciliations ar ON ar.id=sa.reconciliation_id
+                        WHERE sa.session_id IN ({smarks}) AND date(ar.recovery_date)<=date(?)
+                    """,(*session_ids,lifecycle_end)).fetchone()[0] or 0)
+                outstanding=max(sum(max(-float(r['short_over'] or 0),0) for r in sessions)-recovered,0)
+                run_label=', '.join(f"Run #{r['id']} {r['status']}" for r in run_rows)
+                receipt_label=f"Receipt #{receipt['id']} {receipt['invoice_number'] or receipt['delivery_note'] or ''}".strip()
+                label=f"{product} / {tank_number}: {receipt_label} | {run_label}"
+                net_profit=sales-cogs-expenses-delivery_loss-outstanding
+                rows.append((f"{format_display_date(receipt['receipt_date'])} to {format_display_date(lifecycle_end)}",label,f"{float(receipt['received_l'] or 0):,.2f}",f"{sold:,.2f}",f"{rtt:,.2f}",f"NGN {cash:,.2f}",f"NGN {pos:,.2f}",f"NGN {sales:,.2f}",f"NGN {cogs:,.2f}",f"NGN {sales-cogs:,.2f}",f"NGN {expenses:,.2f}",f"NGN {outstanding:,.2f}",f"{delivery_short_l:,.2f} L / NGN {delivery_short_cost:,.2f}",f"{variance:+,.2f}",f"NGN {variance_value:+,.2f}",f"NGN {net_profit:,.2f}"))
+                summaries.append((float(receipt['received_l'] or 0),sold,rtt,cash,pos,sales,cogs,sales-cogs,expenses,outstanding,delivery_short_l,delivery_short_cost,variance,variance_value,net_profit))
+        if summaries:
+            totals=[sum(row[i] for row in summaries) for i in range(15)]
+            rows.append((f"{format_display_date(start)} to {format_display_date(end)}","PERIOD TOTAL (receipt rows)",f"{totals[0]:,.2f}",f"{totals[1]:,.2f}",f"{totals[2]:,.2f}",f"NGN {totals[3]:,.2f}",f"NGN {totals[4]:,.2f}",f"NGN {totals[5]:,.2f}",f"NGN {totals[6]:,.2f}",f"NGN {totals[7]:,.2f}",f"NGN {totals[8]:,.2f}",f"NGN {totals[9]:,.2f}",f"{totals[10]:,.2f} L / NGN {totals[11]:,.2f}",f"{totals[12]:+,.2f}",f"NGN {totals[13]:+,.2f}",f"NGN {totals[14]:,.2f}"))
         return list(PRODUCT_REPORT_HEADERS), rows
-
 
 def product_delivery_detail(database, start, end, tank_id=None):
     """Detailed linked rows for drilldown and the printable/email appendix."""
@@ -536,7 +582,7 @@ def product_delivery_detail(database, start, end, tank_id=None):
                 f"received {float(receipt['quantity_received'] or 0):,.2f} L; "
                 f"variance {float(receipt['variance_value'] or 0):+,.2f} NGN; "
                 f"product paid NGN {float(receipt['product_paid'] or 0):,.2f}; "
-                f"balance due NGN {max(adjusted_receipt_cost-float(receipt['product_paid'] or 0),0):,.2f}",
+                f"balance due NGN {max(adjusted_receipt_cost-float(receipt['product_paid'] or 0), 0):,.2f}",
                 f"Initial shortage {initial_l:,.2f} L / "
                 f"NGN {initial_l*float(receipt['cost_price'] or 0):,.2f}; "
                 f"receipt cost NGN {float(receipt['total_cost'] or 0):,.2f}; "
@@ -625,7 +671,7 @@ def product_delivery_detail(database, start, end, tank_id=None):
                 item["pump_number"] or "", item["attendant"] or "", "",
                 f"Short NGN {float(item['short_amount'] or 0):,.2f}; "
                 f"deducted NGN {float(item['reconciled'] or 0):,.2f}",
-                f"Outstanding NGN {max(float(item['short_amount'] or 0)-float(item['reconciled'] or 0),0):,.2f}",
+                f"Outstanding NGN {max(float(item['short_amount'] or 0)-float(item['reconciled'] or 0), 0):,.2f}",
             ))
 
         # Preserve cumulative party balances in the appendix as well as receipt

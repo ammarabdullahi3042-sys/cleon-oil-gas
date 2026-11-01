@@ -21,7 +21,8 @@ from date_utils import (
 from report_data import (
     expense_report_rows, expense_totals, profit_adjustments,
     product_delivery_report, product_delivery_detail,
-    tank_dip_variance_adjustments,
+    tank_dip_variance_adjustments, tank_desktop_baselines,
+    reconciled_tank_dip_profit,
 )
 from weekly_reports import (
     save_product_finished_email_settings,
@@ -83,7 +84,8 @@ class ReportWindow(ctk.CTkFrame):
         self.from_date = ctk.CTkEntry(controls, width=125,
                                       placeholder_text="DD-MM-YY")
         self.from_date.pack(side="left", padx=4, pady=6)
-        self.from_date.insert(0, format_display_date(date.today().replace(day=1).isoformat()))
+        self.from_date.insert(0, format_display_date(
+            date.today().replace(day=1).isoformat()))
         attach_date_picker(self.from_date)
         ctk.CTkLabel(controls, text="To", text_color=Theme.TEXT_LIGHT).pack(
             side="left", padx=(8, 4), pady=7)
@@ -125,7 +127,8 @@ class ReportWindow(ctk.CTkFrame):
             text_color=Theme.TEXT_LIGHT
         ).grid(row=1, column=2, padx=(6, 3), pady=3, sticky="e")
         self.finished_recipient = ctk.CTkEntry(email_settings, width=190)
-        self.finished_recipient.grid(row=1, column=3, padx=3, pady=3, sticky="w")
+        self.finished_recipient.grid(
+            row=1, column=3, padx=3, pady=3, sticky="w")
         self.finished_enabled = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(
             email_settings, text="Email on Product Finished",
@@ -163,6 +166,48 @@ class ReportWindow(ctk.CTkFrame):
         self.tabs.add("Documents")
         self._build_documents(self.tabs.tab("Documents"))
         self.tabs.configure(command=self._tab_changed)
+        self._apply_report_typography(self)
+
+    def _apply_report_typography(self, parent):
+        """Keep report text bold and readable while preserving its size."""
+        for widget in parent.winfo_children():
+            try:
+                font = widget.cget("font")
+                if isinstance(font, (tuple, list)) and len(font) >= 2:
+                    family, size = font[0], font[1]
+                    attributes = tuple(font[2:])
+                elif hasattr(font, "cget"):
+                    family, size = font.cget("family"), font.cget("size")
+                    attributes = ()
+                else:
+                    family = size = None
+                    attributes = ()
+                attributes = tuple(
+                    item for item in attributes
+                    if str(item).lower() not in ("normal", "bold")
+                )
+                if family and size:
+                    widget.configure(font=(family, size, *attributes, "bold"))
+            except (AttributeError, TypeError, ValueError, TclError):
+                pass
+            self._apply_report_typography(widget)
+
+        report_style = ttk.Style(self)
+        report_style.configure(
+            "CLEONReport.Treeview", font=("Segoe UI", 10, "bold"),
+            rowheight=27, background=Theme.SURFACE,
+            fieldbackground=Theme.SURFACE, foreground=Theme.TEXT,
+        )
+        report_style.configure(
+            "CLEONReport.Treeview.Heading",
+            font=("Segoe UI", 10, "bold"),
+            background=Theme.CARD, foreground=Theme.TEXT_LIGHT,
+        )
+        report_style.map(
+            "CLEONReport.Treeview",
+            background=[("selected", Theme.ACCENT)],
+            foreground=[("selected", Theme.TEXT)],
+        )
 
     def _build_documents(self, parent):
         controls = Theme.card(parent)
@@ -188,6 +233,7 @@ class ReportWindow(ctk.CTkFrame):
         self.documents_table = ttk.Treeview(
             wrapper, columns=("filename", "type", "uploaded"),
             show="headings", selectmode="browse",
+            style="CLEONReport.Treeview",
         )
         self.documents_table.heading("filename", text="Document")
         self.documents_table.heading("type", text="File type")
@@ -261,8 +307,16 @@ class ReportWindow(ctk.CTkFrame):
             try:
                 result = action(*args)
                 if action is upload_published_document:
-                    documents = list_published_documents()
-                    message = "Document uploaded and list refreshed."
+                    try:
+                        documents = list_published_documents()
+                    except (OSError, RuntimeError, ValueError, sqlite3.Error) as error:
+                        documents = None
+                        message = (
+                            "Upload completed, but the document list could not "
+                            f"refresh: {error}. Select Refresh List to check."
+                        )
+                    else:
+                        message = "Document uploaded and list refreshed."
                 elif action is list_published_documents:
                     documents = result
                     message = f"{len(documents)} document(s) available."
@@ -296,7 +350,8 @@ class ReportWindow(ctk.CTkFrame):
             parent=self,
             title="Choose a document to publish",
             filetypes=[
-                ("Supported documents", "*.pdf *.png *.jpg *.jpeg *.gif *.webp *.doc *.docx *.xls *.xlsx *.ppt *.pptx"),
+                ("Supported documents",
+                 "*.pdf *.png *.jpg *.jpeg *.gif *.webp *.doc *.docx *.xls *.xlsx *.ppt *.pptx"),
                 ("All files", "*.*"),
             ],
         )
@@ -341,14 +396,17 @@ class ReportWindow(ctk.CTkFrame):
             "Sales value", "Gross profit", "Recorded expenses",
             "Net profit", "Current stock", "RTT returned", "RTT cost",
             "Tank baseline cost (not profit)",
+            "True tank variance"
         )
+
         for index, title in enumerate(summary_titles):
             card = Theme.card(self.summary_grid)
             card.grid(row=index // 6, column=index % 6, sticky="nsew",
                       padx=4, pady=4)
             title_label = ctk.CTkLabel(
-                card, text=title, text_color=Theme.TEXT_LIGHT,
-                font=Theme.SMALL_FONT, wraplength=145, justify="left"
+                card, text=title, text_color=Theme.TEXT,
+                font=("Segoe UI", 10, "bold"), wraplength=145,
+                justify="left"
             )
             title_label.pack(anchor="w", padx=8, pady=(6, 2))
             value = ctk.CTkLabel(card, text="—", text_color=Theme.TEXT,
@@ -365,22 +423,54 @@ class ReportWindow(ctk.CTkFrame):
         ctk.CTkLabel(
             chart_frame,
             text="Profit & Loss Breakdown & Tank Variance (NGN)",
-                     font=Theme.SUBHEADING_FONT,
+            font=Theme.SUBHEADING_FONT,
             text_color=Theme.TEXT,
         ).pack(anchor="w", padx=12, pady=(6, 0))
         self.profit_chart = Canvas(chart_frame, height=210, highlightthickness=0,
                                    bg=Theme.CARD)
         self.profit_chart.pack(fill="both", expand=True, padx=8, pady=(0, 6))
-        self.profit_chart.bind("<Configure>", lambda _event: self._draw_profit_chart())
+        self.profit_chart.bind(
+            "<Configure>", lambda _event: self._draw_profit_chart())
+        # Inventory Reference Panel
+        self.inventory_reference = Theme.card(parent)
+        self.inventory_reference.pack(
+            fill="x",
+            padx=8,
+            pady=(0, 8)
+        )
+
+        ctk.CTkLabel(
+            self.inventory_reference,
+            text="Inventory & Variance Analysis",
+            font=Theme.SUBHEADING_FONT,
+            text_color=Theme.TEXT,
+        ).pack(anchor="w", padx=12, pady=(8, 4))
+
+        self.baseline_info = ctk.CTkLabel(
+            self.inventory_reference,
+            text="Loading...",
+            justify="left",
+            font=Theme.BODY_FONT,
+            text_color=Theme.TEXT_LIGHT,
+        )
+        self.baseline_info.pack(
+            anchor="w",
+            padx=12,
+            pady=(0, 10)
+        )
 
     def _build_table(self, parent):
         wrapper = ctk.CTkFrame(parent, fg_color=Theme.SURFACE,
                                corner_radius=Theme.CARD_RADIUS)
         wrapper.pack(fill="both", expand=True, padx=8, pady=8)
         tree = ttk.Treeview(wrapper, show="headings")
-        vertical = ttk.Scrollbar(wrapper, orient="vertical", command=tree.yview)
-        horizontal = ttk.Scrollbar(wrapper, orient="horizontal", command=tree.xview)
-        tree.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        tree.configure(style="CLEONReport.Treeview")
+        vertical = ttk.Scrollbar(
+            wrapper, orient="vertical", command=tree.yview)
+        horizontal = ttk.Scrollbar(
+            wrapper, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vertical.set,
+                       xscrollcommand=horizontal.set)
         tree.grid(row=0, column=0, sticky="nsew")
         vertical.grid(row=0, column=1, sticky="ns")
         horizontal.grid(row=1, column=0, sticky="ew")
@@ -395,7 +485,8 @@ class ReportWindow(ctk.CTkFrame):
         except ValueError as error:
             raise ValueError(str(error)) from error
         if start > end:
-            raise ValueError("The start date must be on or before the end date.")
+            raise ValueError(
+                "The start date must be on or before the end date.")
         return start.isoformat(), end.isoformat()
 
     @staticmethod
@@ -495,11 +586,14 @@ class ReportWindow(ctk.CTkFrame):
                 columns = self._columns(conn, "expenses") if conn.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='expenses'"
                 ).fetchone() else set()
-                date_col = next((c for c in ("expense_date", "date", "created_at") if c in columns), None)
-                amount_col = next((c for c in ("amount", "expense_amount", "cost") if c in columns), None)
+                date_col = next(
+                    (c for c in ("expense_date", "date", "created_at") if c in columns), None)
+                amount_col = next(
+                    (c for c in ("amount", "expense_amount", "cost") if c in columns), None)
                 if not date_col or not amount_col:
                     return [], []
-                label_col = next((c for c in ("category", "description", "expense_type", "name") if c in columns), None)
+                label_col = next((c for c in (
+                    "category", "description", "expense_type", "name") if c in columns), None)
                 label_expr = label_col if label_col else "'Expense'"
                 sql = f"SELECT {date_col} AS Date, {label_expr} AS Description, {amount_col} AS Amount FROM expenses WHERE date({date_col}) BETWEEN date(?) AND date(?) ORDER BY date({date_col})"
             elif report == "RTT":
@@ -524,24 +618,31 @@ class ReportWindow(ctk.CTkFrame):
                 expense_rows = expense_report_rows(conn, start, end)
                 expense_groups = {}
                 for _day, source, _description, amount in expense_rows:
-                    expense_groups[source] = expense_groups.get(source, 0.0) + amount
+                    expense_groups[source] = expense_groups.get(
+                        source, 0.0) + amount
                 session_expenses = expense_groups.get("Pump session", 0.0)
                 standalone = expense_groups.get("Expense session", 0.0)
-                account_expenses = expense_groups.get("Accounts cash expense", 0.0)
+                account_expenses = expense_groups.get(
+                    "Accounts cash expense", 0.0)
                 all_expenses = session_expenses + standalone + account_expenses
                 short_loss, delivery_loss, tank_dip_adjustment = (
                     profit_adjustments(conn, start, end)
                 )
+                reconciled_dip_profit = reconciled_tank_dip_profit(
+                    conn, start, end
+                )
                 net_profit = (
                     float(totals[0] or 0) - all_expenses - short_loss
-                    - delivery_loss
+                    - delivery_loss + reconciled_dip_profit
                 )
                 try:
                     tax_rate = float(self.tax_rate_entry.get().strip() or 0)
                 except ValueError as exc:
-                    raise ValueError("Enter a valid tax percentage from 0 to 100.") from exc
+                    raise ValueError(
+                        "Enter a valid tax percentage from 0 to 100.") from exc
                 if not 0 <= tax_rate <= 100:
-                    raise ValueError("Tax percentage must be between 0 and 100.")
+                    raise ValueError(
+                        "Tax percentage must be between 0 and 100.")
                 tax_amount = max(net_profit, 0) * tax_rate / 100
                 return (["Description", "Amount (NGN)"], [
                     ("Fuel Sales Revenue", totals[2]),
@@ -555,6 +656,7 @@ class ReportWindow(ctk.CTkFrame):
                     ("Station-borne Delivery Shortage", -delivery_loss),
                     ("Tank Dip Variance Estimate (excluded from profit)",
                      tank_dip_adjustment),
+                    ("Reconciled Tank Dip Gain/(Loss)", reconciled_dip_profit),
                     ("Net Profit", net_profit),
                     (f"Tax Expense ({tax_rate:g}%)", -tax_amount),
                     ("Profit After Tax", net_profit - tax_amount),
@@ -565,7 +667,8 @@ class ReportWindow(ctk.CTkFrame):
             try:
                 rows = conn.execute(sql, params).fetchall()
             except sqlite3.OperationalError as exc:
-                raise ValueError(f"Could not load {report} report: {exc}") from exc
+                raise ValueError(
+                    f"Could not load {report} report: {exc}") from exc
             headers = list(rows[0].keys()) if rows else [
                 part.strip().split(" AS ")[-1].strip("[]")
                 for part in sql.split("SELECT", 1)[1].split("FROM", 1)[0].split(",")
@@ -688,14 +791,29 @@ class ReportWindow(ctk.CTkFrame):
                 COALESCE(SUM(sale_amount),0), COALESCE(SUM(rtt_litres),0),
                 COALESCE(SUM(rtt_cost),0) FROM pump_sessions
                 WHERE date(session_date) BETWEEN date(?) AND date(?)""",
-                (start, end)).fetchone()
-            stock = conn.execute("SELECT COALESCE(SUM(current_stock),0) FROM tanks").fetchone()[0]
-            baseline_cost = conn.execute(
-                "SELECT COALESCE(SUM(desktop_cost),0) FROM tanks"
-            ).fetchone()[0]
+                               (start, end)).fetchone()
+            stock = conn.execute(
+                "SELECT COALESCE(SUM(current_stock),0) FROM tanks").fetchone()[0]
+            tank_baselines = tank_desktop_baselines(conn)
+            baseline_litres = sum(item["litres"] for item in tank_baselines.values())
+            stock_is_desktop_baseline = (
+                abs(float(stock or 0) - float(baseline_litres or 0)) < 0.01
+            )
+            saleable_stock = 0.0 if stock_is_desktop_baseline else float(stock or 0)
+            baseline_cost = sum(item["cost"] for item in tank_baselines.values())
+            baseline_detail = conn.execute(
+                "SELECT id,COALESCE(tank_number,''),COALESCE(product,'') "
+                "FROM tanks ORDER BY tank_number,id"
+            ).fetchall()
+            baseline_lines = "\n".join(
+                f"Tank {number or tank_id} {product}: "
+                f"{tank_baselines.get(tank_id, {}).get('litres', 0):,.2f} L / "
+                f"₦{tank_baselines.get(tank_id, {}).get('cost', 0):,.2f}"
+                for tank_id, number, product in baseline_detail
+            )
             received = conn.execute("""SELECT COALESCE(SUM(quantity_received),0)
                 FROM fuel_receipts WHERE date(receipt_date) BETWEEN date(?) AND date(?)""",
-                (start, end)).fetchone()[0]
+                                    (start, end)).fetchone()[0]
             first_dip_date = conn.execute("""
                 SELECT MIN(date(dip_date)) FROM tank_dips
                 WHERE date(dip_date)<=date(?)
@@ -703,49 +821,96 @@ class ReportWindow(ctk.CTkFrame):
             cumulative_dip_adjustments = tank_dip_variance_adjustments(
                 conn, first_dip_date or start, end
             )
+            tank_variance_rows = conn.execute(
+                "SELECT id,COALESCE(tank_number,'') FROM tanks ORDER BY tank_number,id"
+            ).fetchall()
             stock_variance = sum(
-                item["litres"] for item in cumulative_dip_adjustments.values()
+                float(cumulative_dip_adjustments.get(tank_id, {}).get("litres", 0) or 0)
+                for tank_id, _tank_number in tank_variance_rows
             )
+            true_variance = sum(
+                float(cumulative_dip_adjustments.get(tank_id, {}).get("litres", 0) or 0)
+                - float(tank_baselines.get(tank_id, {}).get("litres", 0) or 0)
+                for tank_id, _tank_number in tank_variance_rows
+            )
+
             gross_profit = conn.execute("""SELECT COALESCE(SUM(gross_profit),0)
                 FROM pump_sessions WHERE date(session_date) BETWEEN date(?) AND date(?)""",
-                (start, end)).fetchone()[0]
+                                        (start, end)).fetchone()[0]
             session_expenses = conn.execute("""SELECT COALESCE(SUM(expenses),0)
                 FROM pump_sessions WHERE date(session_date) BETWEEN date(?) AND date(?)""",
-                (start, end)).fetchone()[0]
+                                            (start, end)).fetchone()[0]
             expenses = expense_totals(conn, start, end)
             short_loss, delivery_loss, tank_dip_adjustment = (
                 profit_adjustments(conn, start, end)
             )
+            reconciled_dip_profit = reconciled_tank_dip_profit(
+                conn, start, end
+            )
         net_profit = (
             float(gross_profit or 0) - float(expenses or 0) - short_loss
-            - delivery_loss
+            - delivery_loss + reconciled_dip_profit
         )
-        values = (f"{row[0]:,.2f} L", f"{received:,.2f} L",
+        values = (f"{row[0]:,.2f} L",
+                  f"{received:,.2f} L",
                   f"{float(stock_variance or 0):+,.2f} L",
                   f"₦{tank_dip_adjustment:+,.2f}",
-                  f"₦{row[1]:,.2f}", f"₦{gross_profit:,.2f}",
+                  f"₦{row[1]:,.2f}",
+                  f"₦{gross_profit:,.2f}",
                   f"₦{float(expenses or 0):,.2f}",
-                  f"₦{net_profit:,.2f}", f"{stock:,.2f} L",
-                  f"{row[2]:,.2f} L", f"₦{row[3]:,.2f}",
-                  f"₦{baseline_cost:,.2f}")
+                  f"₦{net_profit:,.2f}",
+                  f"{saleable_stock:,.2f} L",
+                  f"{row[2]:,.2f} L",
+                  f"₦{row[3]:,.2f}",
+                  f"₦{baseline_cost:,.2f}",
+                  f"{true_variance:+,.2f} L"
+                  )
         for key, value in zip(self.summary_cards, values):
             color = (
                 "#FACC15" if key == "Tank baseline cost (not profit)" else
-                Theme.DANGER if key == "Cumulative tank dip variance"
+
+                Theme.WARNING if key in ("Recorded expenses", "RTT cost") else
+
+                Theme.INFO if key in ("Net litres sold", "Sales value") else
+
+                Theme.DANGER if key == "Current stock" and saleable_stock <= 0 else
+
+                Theme.INFO if key == "Current stock" else
+
+                "#DC2626" if key == "True tank variance"
+                and true_variance < 0 else
+
+                "#15803D" if key == "True tank variance"
+                and true_variance > 0 else
+
+                "#EF4444" if key == "Cumulative tank dip variance"
                 and stock_variance < 0 else
+
                 Theme.SUCCESS if key == "Cumulative tank dip variance"
                 and stock_variance > 0 else
-                Theme.DANGER if key == "Dip variance estimate (not profit)"
+
+                "#F87171" if key == "Dip variance estimate (not profit)"
                 and tank_dip_adjustment < 0 else
-                Theme.SUCCESS if key == "Dip variance estimate (not profit)"
-                and tank_dip_adjustment > 0 else Theme.TEXT
+
+                "#16A34A" if key == "Dip variance estimate (not profit)"
+                and tank_dip_adjustment > 0 else
+
+                "#16A34A" if key == "Net profit" and net_profit > 0 else
+
+                "#DC2626" if key == "Net profit" and net_profit < 0 else
+
+                Theme.SUCCESS if key == "Gross profit" and gross_profit > 0 else
+
+                "#F87171" if key == "Gross profit" and gross_profit < 0 else
+
+                Theme.TEXT
             )
             self.summary_cards[key].configure(text=value, text_color=color)
             self.summary_title_labels[key].configure(
                 text_color=(
                     "#FACC15"
                     if key == "Tank baseline cost (not profit)"
-                    else Theme.TEXT_LIGHT
+                    else Theme.TEXT
                 )
             )
         self._chart_values = (
@@ -757,10 +922,35 @@ class ReportWindow(ctk.CTkFrame):
             float(tank_dip_adjustment or 0) - float(baseline_cost or 0),
         )
         self._draw_profit_chart()
+        stock_note = (
+            f"Desktop baseline matches recorded tank stock; "
+            f"current stock available for sales: {saleable_stock:,.2f} L\n\n"
+            if stock_is_desktop_baseline else
+            f"Current stock: {saleable_stock:,.2f} L\n\n"
+        )
+        baseline_info_text = (
+            f"Cumulative Variance: {stock_variance:+,.2f} L\n"
+            f"Desktop baseline: {baseline_litres:,.2f} L\n"
+            f"True Variance: {true_variance:+,.2f} L\n"
+            f"Reconciled Dip Gain/(Loss): ₦{reconciled_dip_profit:+,.2f}\n"
+            f"Baseline Cost: ₦{baseline_cost:,.2f}\n"
+            f"Tank baselines:\n{baseline_lines or 'No tank baselines recorded.'}\n"
+            f"Tank true variances:\n" + "\n".join(
+                f"Tank {tank_number or tank_id}: "
+                f"{float(cumulative_dip_adjustments.get(tank_id, {}).get('litres', 0) or 0) - float(tank_baselines.get(tank_id, {}).get('litres', 0) or 0):+,.2f} L"
+                for tank_id, tank_number in tank_variance_rows
+            ) + "\n"
+            + stock_note
+            + "Baseline inventory is excluded from "
+            "profit and loss calculations."
+        )
+        self.baseline_info.configure(text=baseline_info_text)
+
         self.load_email_settings()
 
     def load_email_settings(self):
-        sender, recipient, enabled, _status = product_finished_email_settings(DATABASE)
+        sender, recipient, enabled, _status = product_finished_email_settings(
+            DATABASE)
         self.finished_sender.delete(0, "end")
         self.finished_sender.insert(0, sender)
         self.finished_recipient.delete(0, "end")
@@ -802,12 +992,12 @@ class ReportWindow(ctk.CTkFrame):
             fill=Theme.BORDER, width=1,
         )
         labels = (
-            "Gross\nprofit", "Recorded\nexpenses", "Attendant\nshorts",
+            "Gross\nprofit", "Expenses", "Attendant\nshorts",
             "Delivery\nshortage", "Net\nprofit",
-            "Overage/shortage\nless baseline cost\n(not profit)",
+            "Dip variance less\nbaseline cost",
         )
         colors = (
-            Theme.SUCCESS, Theme.DANGER, Theme.WARNING, Theme.DANGER,
+            Theme.SUCCESS, Theme.WARNING, "#F87171", "#DC2626",
             "#15803D", "#FACC15",
         )
         slot = (width - 40) / len(values)
@@ -829,7 +1019,7 @@ class ReportWindow(ctk.CTkFrame):
                                font=("Segoe UI", 8, "bold"))
             canvas.create_text((x0 + x1) / 2, height - 18,
                                text=label, fill=Theme.TEXT_LIGHT,
-                               font=("Segoe UI", 8), justify="center")
+                               font=("Segoe UI", 8, "bold"), justify="center")
 
     def load_report(self, name):
         headers, rows = self._query(name)
@@ -837,13 +1027,19 @@ class ReportWindow(ctk.CTkFrame):
         tree.delete(*tree.get_children())
         tree.configure(columns=headers)
         for header in headers:
-            tree.heading(header, text=header)
+            if name == "Profit & Loss" and header.casefold() == "description":
+                alignment = "w"
+            elif name == "Profit & Loss" and "amount" in header.casefold():
+                alignment = "e"
+            else:
+                alignment = "center"
+            tree.heading(header, text=header, anchor=alignment)
             width = (
                 480 if header.casefold() == "description"
                 else max(110, min(190, len(header) * 10))
             )
             tree.column(header, width=width,
-                        minwidth=85, anchor="center", stretch=True)
+                        minwidth=85, anchor=alignment, stretch=True)
         for row in rows:
             tree.insert(
                 "", "end",
@@ -915,7 +1111,8 @@ class ReportWindow(ctk.CTkFrame):
                 return
         try:
             start, end = self._dates()
-            headers, rows = product_delivery_detail(DATABASE, start, end, tank_id)
+            headers, rows = product_delivery_detail(
+                DATABASE, start, end, tank_id)
         except (ValueError, sqlite3.Error) as error:
             messagebox.showerror("Product Detail", str(error), parent=self)
             return
@@ -924,9 +1121,12 @@ class ReportWindow(ctk.CTkFrame):
         window.geometry("1300x650")
         window.transient(self.winfo_toplevel())
         ctk.CTkLabel(
-            window, text=label, font=Theme.SUBHEADING_FONT
+            window, text=label, font=("Segoe UI", 16, "bold")
         ).pack(anchor="w", padx=14, pady=(12, 5))
-        tree = ttk.Treeview(window, columns=headers, show="headings")
+        tree = ttk.Treeview(
+            window, columns=headers, show="headings",
+            style="CLEONReport.Treeview",
+        )
         for header in headers:
             tree.heading(header, text=header)
             tree.column(header, width=155, minwidth=100, anchor="center")
@@ -953,7 +1153,8 @@ class ReportWindow(ctk.CTkFrame):
     def export_csv(self):
         name = self.tabs.get()
         if name == "Summary":
-            messagebox.showinfo("Choose a Report", "Select a detailed report tab before exporting.", parent=self)
+            messagebox.showinfo(
+                "Choose a Report", "Select a detailed report tab before exporting.", parent=self)
             return
         try:
             self.load_report(name)
@@ -988,14 +1189,16 @@ class ReportWindow(ctk.CTkFrame):
                     writer.writerows(self._format_export_rows(
                         detail_headers, detail_rows
                     ))
-            messagebox.showinfo("Export Complete", "CSV report saved. Open it in Excel to print or save as PDF.", parent=self)
+            messagebox.showinfo(
+                "Export Complete", "CSV report saved. Open it in Excel to print or save as PDF.", parent=self)
         except (ValueError, sqlite3.Error, OSError) as error:
             messagebox.showerror("Export Error", str(error), parent=self)
 
     def export_pdf(self):
         name = self.tabs.get()
         if name == "Summary":
-            messagebox.showinfo("Choose a Report", "Select a detailed report tab before exporting.", parent=self)
+            messagebox.showinfo(
+                "Choose a Report", "Select a detailed report tab before exporting.", parent=self)
             return
         try:
             self.load_report(name)
@@ -1025,14 +1228,16 @@ class ReportWindow(ctk.CTkFrame):
                 from export_utils import export_pdf as write_cleon_pdf
                 write_cleon_pdf(path, name, self.report_headers, self.report_rows,
                                 (start, end))
-            messagebox.showinfo("Export Complete", "CLEON letterhead PDF report saved.", parent=self)
+            messagebox.showinfo(
+                "Export Complete", "CLEON letterhead PDF report saved.", parent=self)
         except (ValueError, sqlite3.Error, OSError, ImportError) as error:
             messagebox.showerror("Export Error", str(error), parent=self)
 
     def export_excel(self):
         name = self.tabs.get()
         if name == "Summary":
-            messagebox.showinfo("Choose a Report", "Select a detailed report tab before exporting.", parent=self)
+            messagebox.showinfo(
+                "Choose a Report", "Select a detailed report tab before exporting.", parent=self)
             return
         try:
             self.load_report(name)
@@ -1058,6 +1263,7 @@ class ReportWindow(ctk.CTkFrame):
                     path, name, self.report_headers, self.report_rows,
                     (start, end),
                 )
-            messagebox.showinfo("Export Complete", "CLEON formatted Excel report saved.", parent=self)
+            messagebox.showinfo(
+                "Export Complete", "CLEON formatted Excel report saved.", parent=self)
         except (ValueError, sqlite3.Error, OSError, ImportError) as error:
             messagebox.showerror("Export Error", str(error), parent=self)

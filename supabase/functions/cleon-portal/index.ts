@@ -22,12 +22,13 @@ const publisherToken = Deno.env.get("CLEON_WEBSITE_PUBLISH_TOKEN") ?? "";
 const bucket = "cleon-website-documents";
 const maxJsonBytes = 5 * 1024 * 1024;
 const maxDocumentBytes = 10 * 1024 * 1024;
-const roles = new Set(["super_admin", "admin", "manager", "member"]);
+const roles = new Set(["super_admin", "admin", "manager", "member", "staff"]);
 const roleSections: Record<string, Set<string>> = {
   super_admin: new Set(["dashboard", "reports"]),
   admin: new Set(["dashboard", "reports"]),
   manager: new Set(["dashboard", "reports"]),
   member: new Set(["reports"]),
+  staff: new Set(["dashboard", "reports"]),
 };
 const allowedTypes = new Set([
   "application/pdf",
@@ -399,6 +400,31 @@ async function handler(request: Request): Promise<Response> {
     return json(201, { document_id: documentId, filename, content_type: contentType, uploaded_at: uploadedAt });
   }
 
+  if (path === "/api/v1/entries/pending" && method === "GET") {
+    if (!publisherToken || !publisher) throw new ApiError(401, "Station sync authorization required.");
+    const { data, error } = await admin.from("website_entry_submissions")
+      .select("entry_id,member_email,entry_type,payload,created_at")
+      .eq("status", "pending").order("created_at", { ascending: true }).limit(50);
+    if (error) throw new ApiError(500, "Could not load pending station entries.");
+    return json(200, { entries: data ?? [] });
+  }
+
+  const entryResultMatch = path.match(/^\/api\/v1\/entries\/([^/]+)\/result$/);
+  if (entryResultMatch && method === "POST") {
+    if (!publisherToken || !publisher) throw new ApiError(401, "Station sync authorization required.");
+    const body = await readJson(request, 8 * 1024);
+    const status = body.status;
+    if (status !== "accepted" && status !== "rejected") throw new ApiError(400, "Choose accepted or rejected.");
+    const note = typeof body.note === "string" ? body.note.slice(0, 500) : "";
+    const { data, error } = await admin.from("website_entry_submissions")
+      .update({ status, processing_note: note, processed_at: new Date().toISOString() })
+      .eq("entry_id", entryResultMatch[1]).eq("status", "pending")
+      .select("entry_id").maybeSingle();
+    if (error) throw new ApiError(500, "Could not update the station entry status.");
+    if (!data) throw new ApiError(404, "Pending station entry was not found.");
+    return json(200, { entry_id: data.entry_id, status });
+  }
+
   const docMatch = path.match(/^\/api\/v1\/documents\/([^/]+)$/);
   const docList = path === "/api/v1/documents";
   if (method === "GET" && (docList || docMatch)) {
@@ -449,6 +475,81 @@ async function handler(request: Request): Promise<Response> {
     return json(200, Object.fromEntries((data ?? []).map((row) => [row.section, {
       data: row.payload, updated_at: row.updated_at,
     }])));
+  }
+
+  if (method === "POST" && path === "/api/v1/entries") {
+    if (!["staff", "admin", "super_admin"].includes(member.role)) {
+      throw new ApiError(403, "Station entry access has not been assigned to this account.");
+    }
+    const body = await readJson(request, 64 * 1024);
+    const entryType = body.entry_type;
+    const payload = body.payload;
+    if (!["pump_session", "fuel_receipt", "account_activity", "tank_dip"].includes(String(entryType))) {
+      throw new ApiError(400, "Choose a supported station entry type.");
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new ApiError(400, "Entry details are required.");
+    }
+    const item = payload as Record<string, unknown>;
+    const numericFields = [
+      "opening_meter", "closing_meter", "opening_dip", "closing_dip", "rtt_litres", "cash_collected", "pos_amount", "expenses",
+      "invoice_quantity", "actual_quantity", "cost_per_litre", "amount",
+    ];
+    for (const field of numericFields) {
+      if (field in item && (typeof item[field] !== "number" || !Number.isFinite(item[field]) || Number(item[field]) < 0)) {
+        throw new ApiError(400, `Enter a valid non-negative ${field.replaceAll("_", " ")}.`);
+      }
+    }
+    for (const [field, value] of Object.entries(item)) {
+      if (typeof value === "string" && value.length > 500) {
+        throw new ApiError(400, `${field.replaceAll("_", " ")} is too long.`);
+      }
+    }
+    const required: Record<string, string[]> = {
+      pump_session: ["pump_number", "attendant_name", "session_date", "opening_meter", "closing_meter"],
+      fuel_receipt: ["tank", "product", "receipt_date", "supplier", "invoice_number", "invoice_quantity", "actual_quantity", "cost_per_litre", "vehicle_number", "driver_name", "driver_phone"],
+      account_activity: ["transaction_type", "transaction_date", "amount", "account", "reference"],
+      tank_dip: ["tank", "dip_date", "opening_dip", "closing_dip"],
+    };
+    for (const field of required[String(entryType)]) {
+      if (item[field] === undefined || item[field] === null || String(item[field]).trim() === "") {
+        throw new ApiError(400, `Complete the ${field.replaceAll("_", " ")} field.`);
+      }
+    }
+    if (entryType === "pump_session") {
+      if (Number(item.closing_meter) < Number(item.opening_meter)) throw new ApiError(400, "Closing meter cannot be below opening meter.");
+      if (Number(item.rtt_litres ?? 0) > Number(item.closing_meter) - Number(item.opening_meter)) throw new ApiError(400, "RTT litres cannot exceed meter movement.");
+    }
+    if (entryType === "fuel_receipt") {
+      if (!(["PMS", "AGO"].includes(String(item.product).trim().toUpperCase()))) throw new ApiError(400, "Choose PMS or AGO for the receipt product.");
+      if (["invoice_quantity", "actual_quantity", "cost_per_litre"].some((field) => Number(item[field]) <= 0)) throw new ApiError(400, "Receipt quantities and cost must be greater than zero.");
+    }
+    if (entryType === "account_activity") {
+      const ledgerTypes = ["Account Receipt", "Cash Count", "Cash Expense", "POS Transaction", "Account Expense", "Product Payment", "Bank Deposit", "Account Payment / Amount Sent", "Account Transfer", "Opening Balance"];
+      if (!ledgerTypes.includes(String(item.transaction_type))) throw new ApiError(400, "Choose a valid account activity type.");
+    }
+    if (entryType === "tank_dip" && Number(item.opening_dip) === 0 && Number(item.closing_dip) === 0) {
+      throw new ApiError(400, "Enter a measured opening or closing stock value.");
+    }
+    const { data, error } = await admin.from("website_entry_submissions").insert({
+      member_id: member.id,
+      member_email: member.email,
+      entry_type: entryType,
+      payload: item,
+    }).select("entry_id,created_at").single();
+    if (error || !data) throw new ApiError(500, "Could not save this station entry.");
+    return json(201, { entry_id: data.entry_id, status: "pending", created_at: data.created_at });
+  }
+
+  if (method === "GET" && path === "/api/v1/entries") {
+    if (!["staff", "admin", "super_admin"].includes(member.role)) {
+      throw new ApiError(403, "Station entry access has not been assigned to this account.");
+    }
+    const { data, error } = await admin.from("website_entry_submissions")
+      .select("entry_id,entry_type,status,created_at,processing_note")
+      .eq("member_id", member.id).order("created_at", { ascending: false }).limit(50);
+    if (error) throw new ApiError(500, "Could not load your submitted entries.");
+    return json(200, { entries: data ?? [] });
   }
 
   if (method === "GET" && path === "/api/v1/export") {

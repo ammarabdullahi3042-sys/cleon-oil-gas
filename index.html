@@ -849,9 +849,10 @@
 
     .portal-tank-card {
       padding: 12px;
-      background: var(--panel);
+      background: #182538;
       border: 1px solid var(--line);
-      border-radius: 8px
+      border-radius: 10px;
+      color: #f8fafc
     }
 
     .portal-tank-card strong {
@@ -871,14 +872,14 @@
     .portal-tank-meter span {
       display: block;
       height: 100%;
-      background: var(--gold)
+      background: #22c55e
     }
 
     .portal-tank-meter i {
       position: absolute;
       inset: 0 auto 0 0;
-      background: var(--ember);
-      opacity: .85
+      background: #facc15;
+      opacity: 1
     }
 
     .portal-tank-meta {
@@ -930,6 +931,269 @@
       margin-top: 8px
     }
 
+    #portal-data .kpi {
+      background: #182538;
+      border: 0;
+      border-radius: 12px;
+      box-shadow: none;
+      padding: 14px;
+      color: #f8fafc
+    }
+
+    #portal-data .kpi span { color: #aebed2; font-size: .78rem }
+    #portal-data .kpi b { color: #f8fafc; font-size: 1.2rem }
+    #portal-dashboard-view, #portal-reports-view { color: #f8fafc }
+    #portal-data .portal-heading, #portal-data .portal-subheading { color: #f8fafc }
+    #portal-data .portal-table th { background: #182538; color: #f8fafc }
+    #portal-data .portal-table td { color: #e2e8f0 }
+
+    .portal-app-dashboard {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(250px, .95fr) minmax(210px, .72fr);
+      grid-template-rows: auto auto auto;
+      gap: 14px;
+      align-items: stretch
+    }
+
+    .portal-app-card {
+      min-width: 0;
+      padding: 16px;
+      border-radius: 12px;
+      background: #182538;
+      color: #f8fafc
+    }
+
+    .portal-card-title {
+      display: block;
+      color: #dbeafe;
+      font-size: .85rem
+    }
+
+    .portal-sales-card { grid-column: 1; grid-row: 1 }
+    .portal-fuel-card { grid-column: 2; grid-row: 1 / span 2 }
+    .portal-variance-card { grid-column: 3; grid-row: 1 / span 2 }
+    .portal-net-litres-card {
+      grid-column: 1;
+      grid-row: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      min-height: 112px
+    }
+    .portal-dashboard-bottom {
+      grid-column: 1 / 3;
+      grid-row: 3;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px
+    }
+    .portal-prices-card { grid-column: 3; grid-row: 3 }
+
+    .portal-sales-total,
+    .portal-fuel-total,
+    .portal-net-litres-card > strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1.55rem;
+      font-weight: 800;
+      line-height: 1.25
+    }
+    .portal-sales-total { color: #22c55e }
+    .portal-fuel-total { color: #f87171 }
+    .portal-net-litres-card > strong { color: #f97316; font-size: 2rem }
+
+    .portal-stock-warning,
+    .portal-baseline-key {
+      min-height: 1.4em;
+      margin: 7px 0;
+      font-size: .76rem;
+      line-height: 1.35
+    }
+    .portal-stock-warning { color: #f87171; font-weight: 700 }
+    .portal-baseline-key { color: #facc15 }
+    .portal-fuel-card .portal-tank-levels {
+      display: grid;
+      grid-template-columns: 1fr;
+      max-height: 255px;
+      overflow-y: auto;
+      margin: 8px 0 0
+    }
+    .portal-tank-card { padding: 10px; border-radius: 8px }
+    .portal-tank-meta { display: grid; gap: 3px; font-size: .76rem }
+    .portal-tank-meta span { overflow-wrap: anywhere }
+
+    .portal-variance-card h4,
+    .portal-prices-card h4 {
+      margin: 2px 0 7px;
+      color: #dbeafe;
+      font-size: .82rem;
+      text-align: center
+    }
+    .portal-variance-formula {
+      margin: 0 0 10px;
+      color: #a8b5c7;
+      font-size: .7rem;
+      line-height: 1.3;
+      text-align: center
+    }
+    .portal-variance-station {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 10px;
+      text-align: center;
+      font-size: .78rem
+    }
+    #portal-daily-tank-variance { color: #bfdbfe }
+    .portal-tank-variances { display: grid; gap: 8px }
+    .portal-tank-variance {
+      padding: 7px 4px;
+      color: #22c55e;
+      font-size: .77rem;
+      font-weight: 700;
+      line-height: 1.35;
+      overflow-wrap: anywhere
+    }
+    .portal-tank-variance.loss { color: #f87171 }
+    .portal-tank-variance.neutral { color: #bfdbfe }
+
+    .portal-sales-comparison { color: #a8b5c7; font-size: .72rem }
+    .portal-sales-comparison.loss { color: #f87171 }
+    .portal-sales-comparison.gain { color: #22c55e }
+    .portal-dashboard-mini-kpi {
+      min-width: 0;
+      padding: 11px 13px;
+      border-radius: 10px;
+      background: #182538
+    }
+    .portal-dashboard-mini-kpi span,
+    .portal-dashboard-mini-kpi strong { display: block }
+    .portal-dashboard-mini-kpi span { color: #dbeafe; font-size: .78rem }
+    .portal-dashboard-mini-kpi strong { margin-top: 3px; font-size: 1.1rem }
+    .portal-price-list { display: grid; gap: 7px; max-height: 170px; overflow: auto }
+    .portal-price-item { padding: 8px; border-radius: 8px; background: #141e2d }
+    .portal-price-item span,
+    .portal-price-item strong,
+    .portal-price-item small { display: block }
+    .portal-price-item span { color: #bfdbfe; font-size: .72rem }
+    .portal-price-item strong { color: #22c55e; font-size: .92rem }
+    .portal-price-item small { color: #a8b5c7; font-size: .7rem }
+
+    .portal-report-tabs {
+      display: flex;
+      flex: 1 1 100%;
+      flex-wrap: wrap;
+      gap: 3px;
+      padding: 3px;
+      border-radius: 7px;
+      background: #10182a
+    }
+    .portal-report-tabs button {
+      min-height: 34px;
+      padding: 6px 11px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: #dbeafe;
+      font: 600 .84rem "Instrument Sans", system-ui, sans-serif;
+      cursor: pointer
+    }
+    .portal-report-tabs button[aria-selected="true"] {
+      background: #ec7624;
+      color: #fff
+    }
+    .portal-report-tabs button:hover:not([aria-selected="true"]):not(:disabled) {
+      background: #202c3e;
+      color: #fff
+    }
+    .portal-report-tabs button:disabled { opacity: .55; cursor: default }
+    .portal-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px }
+    .portal-entry-card { display: grid; align-content: start; gap: 10px; padding: 16px; border: 1px solid #2b3a50; border-radius: 12px; background: #182538 }
+    .portal-entry-card h3 { margin: 0 0 4px; color: #fff; font-size: 1rem }
+    .portal-entry-card label { display: grid; gap: 5px; color: #dbeafe; font-size: .8rem; font-weight: 700 }
+    .portal-entry-card input, .portal-entry-card select { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid #33445d; border-radius: 7px; background: #101827; color: #f8fafc; font: inherit }
+    .portal-entry-message { min-height: 1.2em; margin: 0; color: #38bdf8; font-size: .8rem; font-weight: 700 }
+    .portal-entry-history { margin-top: 16px; padding: 16px; border-radius: 12px; background: #182538 }
+    .portal-entry-history > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 10px }
+    .portal-entry-history h3 { margin: 0; color: #fff; font-size: 1rem }
+    .portal-entry-history table { width: 100%; margin-top: 10px; border-collapse: collapse; color: #e2e8f0; font-size: .82rem }
+    .portal-entry-history th, .portal-entry-history td { padding: 9px; border-bottom: 1px solid #2b3a50; text-align: left }
+    .portal-entry-status { color: #facc15; font-weight: 800 }
+    #portal-summary-kpis {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin: 10px 0
+    }
+    #portal-summary-kpis .kpi { min-width: 0; padding: 10px }
+    #portal-summary-kpis .kpi span { color: #dbeafe; font-weight: 700 }
+    #portal-summary-kpis .kpi b { font-size: 1rem; overflow-wrap: anywhere }
+
+    #portal-profit-chart {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      min-height: 235px;
+      padding: 14px 12px 8px;
+      border-radius: 12px;
+      background: #182538
+    }
+    .portal-chart-item {
+      display: grid;
+      grid-template-rows: 24px minmax(105px, 1fr) 42px;
+      min-width: 0;
+      text-align: center
+    }
+    .portal-chart-item strong { font-size: .72rem; overflow-wrap: anywhere }
+    .portal-chart-plot {
+      position: relative;
+      min-height: 105px;
+      border-bottom: 1px solid #2a3749
+    }
+    .portal-chart-plot::after {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      left: 0;
+      height: 1px;
+      background: #2a3749;
+      content: ""
+    }
+    .portal-chart-plot i {
+      position: absolute;
+      right: 18%;
+      left: 18%;
+      z-index: 1;
+      min-height: 2px
+    }
+    .portal-chart-item span { align-self: end; color: #bfdbfe; font-size: .72rem }
+
+    @media(max-width:1000px) {
+      .portal-app-dashboard { grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr) }
+      .portal-sales-card { grid-column: 1; grid-row: 1 }
+      .portal-fuel-card { grid-column: 2; grid-row: 1 / span 2 }
+      .portal-variance-card { grid-column: 1; grid-row: 2 }
+      .portal-net-litres-card { grid-column: 1; grid-row: 3 }
+      .portal-dashboard-bottom { grid-column: 1; grid-row: 4 }
+      .portal-prices-card { grid-column: 2; grid-row: 3 / span 2 }
+      #portal-summary-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+      #portal-profit-chart { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+      .portal-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+    }
+    @media(max-width:620px) {
+      .portal-app-dashboard { grid-template-columns: minmax(0, 1fr) }
+      .portal-sales-card, .portal-fuel-card, .portal-variance-card,
+      .portal-net-litres-card, .portal-dashboard-bottom, .portal-prices-card {
+        grid-column: 1;
+        grid-row: auto
+      }
+      .portal-fuel-card .portal-tank-levels { max-height: 300px }
+      .portal-dashboard-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+      #portal-summary-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+      #portal-profit-chart { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+      .portal-entry-grid { grid-template-columns: 1fr }
+    }
+
     .portal-table-wrap {
       max-width: 100%;
       overflow: auto;
@@ -949,6 +1213,12 @@
       border: 1px solid var(--line);
       text-align: left;
       white-space: nowrap
+    }
+
+    .portal-table th.numeric,
+    .portal-table td.numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums
     }
 
     .portal-table th {
@@ -1257,54 +1527,127 @@
               aria-selected="true">Dashboard</button>
             <button type="button" role="tab" id="portal-reports-tab" aria-controls="portal-reports-view"
               aria-selected="false">Report Centre</button>
+            <button type="button" role="tab" id="portal-entry-tab" aria-controls="portal-entry-view"
+              aria-selected="false" hidden>Station Entry</button>
           </div>
           <section id="portal-dashboard-view" role="tabpanel" aria-labelledby="portal-dashboard-tab">
-            <h3 class="portal-heading">Daily Dashboard</h3>
+            <h3 class="portal-heading">Operations Overview</h3>
             <p id="portal-dashboard-status" class="portal-updated"></p>
-            <div class="kpis" id="portal-kpis"></div>
-            <p id="portal-sales-comparison" class="portal-updated"></p>
-            <h3 class="portal-subheading">Daily sales and reconciliation</h3>
-            <div class="portal-gauge" role="img" aria-label="Sales reconciliation gauge"><span
-                id="portal-gauge-fill"></span></div>
-            <div class="portal-gauge-legend" id="portal-gauge-legend"></div>
-            <h3 class="portal-heading">Tank stock and variance</h3>
-            <p id="portal-stock-warning" class="portal-updated"></p>
-            <p id="portal-variance-total" class="portal-updated"></p>
-            <div class="portal-tank-levels" id="portal-tank-levels"></div>
-            <div class="portal-table-wrap">
-              <table class="portal-table" id="portal-tanks">
-                <thead></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-            <h3 class="portal-heading">Selling prices</h3>
-            <div class="portal-table-wrap">
-              <table class="portal-table" id="portal-prices">
-                <thead></thead>
-                <tbody></tbody>
-              </table>
+            <div class="portal-app-dashboard">
+              <section class="portal-app-card portal-sales-card">
+                <span class="portal-card-title">Sales</span>
+                <strong class="portal-sales-total" id="portal-sales-value">₦0.00</strong>
+                <div class="portal-gauge" role="img" aria-label="Sales reconciliation gauge">
+                  <span id="portal-gauge-fill"></span>
+                </div>
+                <div class="portal-gauge-legend" id="portal-gauge-legend"></div>
+              </section>
+              <section class="portal-app-card portal-fuel-card">
+                <span class="portal-card-title">Fuel Stock</span>
+                <strong class="portal-fuel-total" id="portal-stock-value">0.00 L</strong>
+                <p class="portal-stock-warning" id="portal-stock-warning"></p>
+                <p class="portal-baseline-key">Yellow = tank desktop baseline | Station baseline sums all tanks</p>
+                <div class="portal-tank-levels" id="portal-tank-levels"></div>
+              </section>
+              <section class="portal-app-card portal-variance-card">
+                <h4>STOCK VARIANCE BY TANK</h4>
+                <p class="portal-variance-formula">Net sold − (opening dip + received − closing dip)</p>
+                <div class="portal-variance-station">
+                  <strong id="portal-daily-tank-variance">Daily combined variance: —</strong>
+                </div>
+                <div class="portal-tank-variances" id="portal-tank-variances"></div>
+              </section>
+              <section class="portal-app-card portal-net-litres-card">
+                <span class="portal-card-title">Net Litres Sold</span>
+                <strong id="portal-net-litres">0.00 L</strong>
+                <span class="portal-sales-comparison" id="portal-sales-comparison">No previous sales day</span>
+              </section>
+              <div class="portal-dashboard-bottom" id="portal-dashboard-kpis"></div>
+              <section class="portal-app-card portal-prices-card">
+                <h4>CURRENT SELLING PRICE</h4>
+                <div class="portal-price-list" id="portal-prices"></div>
+              </section>
             </div>
           </section>
           <section id="portal-reports-view" role="tabpanel" aria-labelledby="portal-reports-tab" hidden>
             <h3 class="portal-heading">Report Centre</h3>
             <p id="portal-report-period" class="portal-updated"></p>
             <div class="portal-controls">
-              <label for="portal-report">Report</label>
-              <select id="portal-report"></select>
+              <div class="portal-report-tabs" id="portal-report-tabs" role="tablist"
+                aria-label="Report Centre reports"></div>
               <button class="btn" type="button" data-export="csv">Download CSV</button>
               <button class="btn" type="button" data-export="xlsx">Download Excel</button>
               <button class="btn" type="button" data-export="pdf">Download PDF</button>
             </div>
-            <div id="portal-summary" hidden>
+            <div id="portal-summary" role="tabpanel" hidden>
               <div class="kpis portal-summary-kpis" id="portal-summary-kpis"></div>
               <h3 class="portal-subheading">Profit &amp; Loss Breakdown &amp; Tank Variance (NGN)</h3>
               <div id="portal-profit-chart" class="portal-profit-chart"></div>
             </div>
-            <div class="portal-table-wrap">
+            <div class="portal-table-wrap" id="portal-report-panel" role="tabpanel">
               <table class="portal-table" id="portal-report-table">
                 <thead></thead>
                 <tbody></tbody>
               </table>
+            </div>
+          </section>
+          <section id="portal-entry-view" role="tabpanel" aria-labelledby="portal-entry-tab" hidden>
+            <h3 class="portal-heading">Station Entry</h3>
+            <p class="portal-updated">Submit station activity under your assigned account. Entries are stored securely for station processing.</p>
+            <div class="portal-entry-grid">
+              <form class="portal-entry-card" data-entry-form="pump_session">
+                <h3>Pump Session</h3>
+                <label>Pump<input name="pump_number" required maxlength="40" placeholder="Pump number"></label>
+                <label>Attendant<input name="attendant_name" required maxlength="120" placeholder="Attendant name"></label>
+                <label>Session date<input name="session_date" type="date" required></label>
+                <label>Opening meter (L)<input name="opening_meter" type="number" min="0" step="0.01" required></label>
+                <label>Closing meter (L)<input name="closing_meter" type="number" min="0" step="0.01" required></label>
+                <label>RTT (L)<input name="rtt_litres" type="number" min="0" step="0.01" value="0"></label>
+                <label>Cash received (NGN)<input name="cash_collected" type="number" min="0" step="0.01" value="0"></label>
+                <label>POS received (NGN)<input name="pos_amount" type="number" min="0" step="0.01" value="0"></label>
+                <label>Session expenses (NGN)<input name="expenses" type="number" min="0" step="0.01" value="0"></label>
+                <button class="btn" type="submit">Submit pump session</button><p class="portal-entry-message" role="status"></p>
+              </form>
+              <form class="portal-entry-card" data-entry-form="fuel_receipt">
+                <h3>Fuel Receipt</h3>
+                <label>Tank<input name="tank" required maxlength="80" placeholder="Tank name / number"></label>
+                <label>Product<select name="product" required><option value="">Choose product</option><option>PMS</option><option>AGO</option></select></label>
+                <label>Receipt date<input name="receipt_date" type="date" required></label>
+                <label>Supplier<input name="supplier" required maxlength="160"></label>
+                <label>Invoice number<input name="invoice_number" required maxlength="100"></label>
+                <label>Delivery note<input name="delivery_note" maxlength="100"></label>
+                <label>Invoice quantity (L)<input name="invoice_quantity" type="number" min="0.01" step="0.01" required></label>
+                <label>Actual quantity received (L)<input name="actual_quantity" type="number" min="0.01" step="0.01" required></label>
+                <label>Cost per litre (NGN)<input name="cost_per_litre" type="number" min="0.01" step="0.01" required></label>
+                <label>Pump opening meters<input name="pump_openings" maxlength="500" placeholder="Pump 1=12345, Pump 2=67890"></label>
+                <label>Vehicle number<input name="vehicle_number" required maxlength="60"></label>
+                <label>Driver name<input name="driver_name" required maxlength="120"></label>
+                <label>Driver phone<input name="driver_phone" required maxlength="40"></label>
+                <button class="btn" type="submit">Submit fuel receipt</button><p class="portal-entry-message" role="status"></p>
+              </form>
+              <form class="portal-entry-card" data-entry-form="account_activity">
+                <h3>Account Activity</h3>
+                <label>Activity type<select name="transaction_type" required><option>Account Receipt</option><option>Cash Count</option><option>Cash Expense</option><option>POS Transaction</option><option>Account Expense</option><option>Product Payment</option><option>Bank Deposit</option><option>Account Payment / Amount Sent</option><option>Account Transfer</option><option>Opening Balance</option></select></label>
+                <label>Transaction date<input name="transaction_date" type="date" required></label>
+                <label>Amount (NGN)<input name="amount" type="number" min="0" step="0.01" required></label>
+                <label>Account / source<input name="account" required maxlength="120" placeholder="Cash, POS, or bank account"></label>
+                <label>Destination account<input name="target_account" maxlength="120" placeholder="For transfers/deposits"></label>
+                <label>Fuel receipt ID<input name="receipt_id" type="number" min="1" step="1" placeholder="Required for Product Payment"></label>
+                <label>Reference / narration<input name="reference" required maxlength="240"></label>
+                <button class="btn" type="submit">Submit account activity</button><p class="portal-entry-message" role="status"></p>
+              </form>
+              <form class="portal-entry-card" data-entry-form="tank_dip">
+                <h3>Tank Dip</h3>
+                <label>Tank<input name="tank" required maxlength="80" placeholder="Tank name / number"></label>
+                <label>Dip date<input name="dip_date" type="date" required></label>
+                <label>Opening measured stock (L)<input name="opening_dip" type="number" min="0" step="0.01" required></label>
+                <label>Closing measured stock (L)<input name="closing_dip" type="number" min="0" step="0.01" required></label>
+                <button class="btn" type="submit">Submit tank dip</button><p class="portal-entry-message" role="status"></p>
+              </form>
+            </div>
+            <div class="portal-entry-history">
+              <div><h3>My recent submissions</h3><button class="btn ghost" id="portal-entry-refresh" type="button">Refresh entries</button></div>
+              <div id="portal-entry-list" aria-live="polite">No submissions loaded.</div>
             </div>
           </section>
         </div>
@@ -1616,13 +1959,15 @@
       const passwordInput = document.getElementById("portal-password");
       const status = document.getElementById("portal-status");
       const portalData = document.getElementById("portal-data");
-      const reportSelect = document.getElementById("portal-report");
+      const reportTabs = document.getElementById("portal-report-tabs");
       const storageKey = "cleon-portal-token";
       const refreshStorageKey = "cleon-portal-refresh-token";
       let refreshToken = sessionStorage.getItem(refreshStorageKey) || "";
       let publishedReports = {};
       let publishedSummary = {};
+      let activeReport = "Summary";
       let accessToken = sessionStorage.getItem(storageKey) || "";
+      let memberRole = "";
       let refreshTimer = null;
       let secureApi = false;
       try {
@@ -1699,8 +2044,13 @@
       }
 
       function renderReport(name) {
+        activeReport = name;
+        reportTabs.querySelectorAll("button").forEach(button => {
+          const selected = button.dataset.report === name;
+          button.setAttribute("aria-selected", String(selected));
+        });
         const summaryPanel = document.getElementById("portal-summary");
-        const reportTable = document.getElementById("portal-report-table").closest(".portal-table-wrap");
+        const reportTable = document.getElementById("portal-report-panel");
         const exportButtons = document.querySelectorAll("[data-export]");
         if (name === "Summary") {
           summaryPanel.hidden = false;
@@ -1724,6 +2074,9 @@
           const cell = document.createElement("th");
           cell.scope = "col";
           cell.textContent = value;
+          if (/(amount|ngn|price|cost|profit|sales|balance|shortage|variance)/i.test(value)) {
+            cell.classList.add("numeric");
+          }
           headerRow.appendChild(cell);
         });
         head.appendChild(headerRow);
@@ -1732,6 +2085,9 @@
           row.forEach((value, index) => {
             const cell = document.createElement("td");
             cell.textContent = displayTableValue(value, report.headers[index]);
+            if (/(amount|ngn|price|cost|profit|sales|balance|shortage|variance)/i.test(report.headers[index])) {
+              cell.classList.add("numeric");
+            }
             tableRow.appendChild(cell);
           });
           body.appendChild(tableRow);
@@ -1746,6 +2102,35 @@
         }
       }
 
+      async function refreshEntryHistory() {
+        const host = document.getElementById("portal-entry-list");
+        const result = await fetchJson(`${apiBase}/api/v1/entries`);
+        const table = document.createElement("table");
+        const head = document.createElement("thead");
+        const row = document.createElement("tr");
+          ["Type", "Submitted", "Status", "Reference", "Result"].forEach(label => {
+          const cell = document.createElement("th"); cell.textContent = label; row.appendChild(cell);
+        });
+        head.appendChild(row); table.appendChild(head);
+        const body = document.createElement("tbody");
+        (result.entries || []).forEach(entry => {
+          const tr = document.createElement("tr");
+          const values = [entry.entry_type.replaceAll("_", " "), new Date(entry.created_at).toLocaleString(), entry.status, entry.entry_id.slice(0, 8), entry.processing_note || "—"];
+          values.forEach((value, index) => {
+            const cell = document.createElement("td"); cell.textContent = value;
+            if (index === 2) {
+              cell.className = "portal-entry-status";
+              cell.style.color = entry.status === "accepted" ? "#22c55e" : entry.status === "rejected" ? "#f87171" : "#facc15";
+            }
+            if (index === 3) cell.title = entry.entry_id;
+            tr.appendChild(cell);
+          });
+          body.appendChild(tr);
+        });
+        table.appendChild(body);
+        host.replaceChildren(...((result.entries || []).length ? [table] : [document.createTextNode("No submissions yet.")]));
+      }
+
       function renderSummary(summary) {
         const cards = document.getElementById("portal-summary-kpis");
         cards.replaceChildren();
@@ -1756,32 +2141,53 @@
           title.textContent = label;
           const amount = document.createElement("b");
           amount.textContent = value;
+          const normalized = label.toLowerCase();
+          const signedValue = Number(String(value).replace(/[^\d.-]/g, "")) || 0;
+          let color = "#f8fafc";
+          if (normalized.includes("baseline") || normalized.includes("expense") || normalized.includes("rtt cost")) {
+            color = "#facc15";
+          } else if (normalized.includes("net litres") || normalized.includes("sales value")) {
+            color = "#38bdf8";
+          } else if (normalized.includes("variance")) {
+            color = signedValue < 0 ? "#f87171" : signedValue > 0 ? "#22c55e" : "#a8b5c7";
+          } else if (normalized.includes("net profit")) {
+            color = signedValue < 0 ? "#dc2626" : "#16a34a";
+          } else if (normalized.includes("gross profit")) {
+            color = signedValue < 0 ? "#f87171" : "#22c55e";
+          }
+          amount.style.color = color;
           card.append(title, amount);
           cards.appendChild(card);
         });
         const values = summary.chart || [];
         const labels = [
-          "Gross profit", "Recorded expenses", "Attendant shorts",
+          "Gross profit", "Expenses", "Attendant shorts",
           "Delivery shortage", "Net profit",
-          "Overage/shortage less baseline cost (not profit)",
+          "Dip variance less baseline cost",
         ];
+        const colors = ["#22c55e", "#fbbf24", "#f87171", "#dc2626", "#15803d", "#facc15"];
         const chart = document.getElementById("portal-profit-chart");
         chart.replaceChildren();
         const maximum = Math.max(...values.map(value => Math.abs(Number(value) || 0)), 1);
         values.forEach((value, index) => {
           const item = document.createElement("div");
-          item.className = "portal-profit-item";
+          item.className = "portal-chart-item";
           const title = document.createElement("span");
           title.textContent = labels[index] || `Value ${index + 1}`;
-          const track = document.createElement("div");
-          track.className = "portal-profit-track";
+          const plot = document.createElement("div");
+          plot.className = "portal-chart-plot";
           const bar = document.createElement("i");
-          bar.style.width = `${Math.max(Math.abs(Number(value) || 0) / maximum * 100, 1)}%`;
-          bar.style.background = Number(value) < 0 ? "var(--ember)" : "var(--gold)";
-          track.appendChild(bar);
+          const numericValue = Number(value) || 0;
+          const barHeight = Math.max(Math.abs(numericValue) / maximum * 46, 1);
+          bar.style.height = `${barHeight}%`;
+          bar.style.background = colors[index] || "#facc15";
+          if (numericValue < 0) bar.style.top = "50%";
+          else bar.style.bottom = "50%";
+          plot.appendChild(bar);
           const amount = document.createElement("strong");
-          amount.textContent = `₦${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-          item.append(title, track, amount);
+          amount.textContent = `₦${numericValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          amount.style.color = colors[index] || "#facc15";
+          item.append(amount, plot, title);
           chart.appendChild(item);
         });
       }
@@ -1791,27 +2197,13 @@
         const reports = snapshots.reports;
         if (!dashboard || !reports) throw new Error("The app has not published both dashboard and reports yet.");
         const metrics = dashboard.data.metrics;
-        const items = [
-          ["Sales", metrics.sales_amount],
-          ["Fuel Stock", metrics.fuel_stock],
-          ["Net Litres Sold", metrics.litres_sold],
-          ["Cash Short / Over", metrics.cash_short_over],
-          ["RTT", metrics.rtt_litres],
-          ["RTT Cost", metrics.rtt_cost],
-          ["Expenses", metrics.expenses],
-        ];
-        const cards = document.getElementById("portal-kpis");
-        cards.replaceChildren();
-        items.forEach(([label, value]) => {
-          const card = document.createElement("div");
-          card.className = "kpi";
-          const title = document.createElement("span");
-          title.textContent = label;
-          const amount = document.createElement("b");
-          amount.textContent = displayValue(value, label);
-          card.append(title, amount);
-          cards.appendChild(card);
-        });
+        const money = value => `₦${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const litres = value => `${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+        document.getElementById("portal-sales-value").textContent = money(metrics.sales_amount);
+        const stockValue = document.getElementById("portal-stock-value");
+        stockValue.textContent = litres(metrics.fuel_stock);
+        stockValue.style.color = Number(metrics.fuel_stock || 0) > 5000 ? "#22c55e" : "#f87171";
+        document.getElementById("portal-net-litres").textContent = litres(metrics.litres_sold);
         const selectedDate = new Date(`${dashboard.data.date}T00:00:00`);
         const recordsDateText = metrics.records_date || dashboard.data.date;
         const recordsDate = new Date(`${recordsDateText}T00:00:00`);
@@ -1840,13 +2232,16 @@
             : change < 0 ? `▼ ${Math.abs(change).toFixed(1)}% vs previous sales day`
               : "No change vs previous sales day";
         }
-        document.getElementById("portal-sales-comparison").textContent = comparison;
+        const comparisonLabel = document.getElementById("portal-sales-comparison");
+        comparisonLabel.textContent = comparison;
+        comparisonLabel.classList.toggle("gain", comparison.startsWith("▲"));
+        comparisonLabel.classList.toggle("loss", comparison.startsWith("▼"));
         const gaugeSegments = [
-          ["cash_collected", "Cash", "#16a34a"],
-          ["pos_collected", "POS", "#3b82f6"],
-          ["rtt_sales_value", "RTT", "#a855f7"],
-          ["session_expenses", "Expenses", "#f59e0b"],
-          ["cash_short_over", "Short / Over", "#dc2626"],
+          ["cash_collected", "Cash", "#22c55e"],
+          ["pos_collected", "POS", "#38bdf8"],
+          ["rtt_sales_value", "RTT", "#ec7624"],
+          ["session_expenses", "Expenses", "#fbbf24"],
+          ["cash_short_over", "Short / Over", "#f87171"],
         ];
         const gauge = document.getElementById("portal-gauge-fill");
         gauge.replaceChildren();
@@ -1859,7 +2254,7 @@
           const amount = key === "cash_short_over" ? Math.max(-rawValue, 0) : Math.max(rawValue, 0);
           const segment = document.createElement("span");
           segment.style.background = key === "cash_short_over" && rawValue > 0
-            ? "#16a34a" : color;
+            ? "#22c55e" : color;
           segment.style.width = expected > 0
             ? `${Math.min(amount / expected * 100, Math.max(100 - usedWidth, 0))}%`
             : "0%";
@@ -1867,43 +2262,12 @@
           gauge.appendChild(segment);
           const legend = document.createElement("span");
           legend.textContent = `${label} ₦${rawValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          legend.style.color = key === "cash_short_over" && rawValue > 0 ? "#22c55e" : color;
           gaugeLegend.appendChild(legend);
         });
         const expectedLabel = document.createElement("span");
         expectedLabel.textContent = `Expected ₦${expected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         gaugeLegend.appendChild(expectedLabel);
-        const tankRows = (metrics.tank_levels || []).map(tank => [
-          tank[0], tank[1], tank[3], tank[2], tank[4], tank[5], tank[8]
-        ]);
-        const tankHeaders = [
-          "Tank", "Product", "Stock (L)", "Capacity (L)",
-          "Sold today (L)", "Received today (L)", "Variance (L)"
-        ];
-        const tanksTable = document.getElementById("portal-tanks");
-        const renderSimpleTable = (table, headers, rows) => {
-          const head = table.querySelector("thead");
-          const body = table.querySelector("tbody");
-          head.replaceChildren();
-          body.replaceChildren();
-          const headerRow = document.createElement("tr");
-          headers.forEach(value => {
-            const cell = document.createElement("th");
-            cell.scope = "col";
-            cell.textContent = value;
-            headerRow.appendChild(cell);
-          });
-          head.appendChild(headerRow);
-          rows.forEach(row => {
-            const tableRow = document.createElement("tr");
-            row.forEach((value, index) => {
-              const cell = document.createElement("td");
-              cell.textContent = displayTableValue(value, headers[index]);
-              tableRow.appendChild(cell);
-            });
-            body.appendChild(tableRow);
-          });
-        };
-        renderSimpleTable(tanksTable, tankHeaders, tankRows);
         const tankLevels = document.getElementById("portal-tank-levels");
         tankLevels.replaceChildren();
         (metrics.tank_levels || []).forEach(tank => {
@@ -1916,56 +2280,137 @@
           const stockFill = document.createElement("span");
           const capacity = Math.max(Number(tank[2] || 0), 0);
           const stock = Math.max(Number(tank[3] || 0), 0);
-          stockFill.style.width = `${capacity > 0 ? Math.min(stock / capacity * 100, 100) : 0}%`;
+          const desktop = Math.max(Number(tank[9] || 0), 0);
+          stockFill.style.width = `${capacity > 0 ? Math.min(Math.max(stock, desktop) / capacity * 100, 100) : 0}%`;
+          const fillColor = stock <= 5000 ? "#f87171" : "#22c55e";
+          stockFill.style.background = fillColor;
           const baseline = document.createElement("i");
-          baseline.style.width = `${capacity > 0 ? Math.min(Number(tank[9] || 0) / capacity * 100, 100) : 0}%`;
+          baseline.style.width = `${capacity > 0 ? Math.min(desktop / capacity * 100, 100) : 0}%`;
+          baseline.style.background = "#facc15";
           meter.append(stockFill, baseline);
           const meta = document.createElement("div");
           meta.className = "portal-tank-meta";
           const amount = document.createElement("span");
-          amount.textContent = `${displayTableValue(stock, "Stock (L)")} / ${displayTableValue(capacity, "Capacity (L)")}`;
+          amount.textContent = `${displayTableValue(stock, "Stock (L)")} / ${displayTableValue(capacity, "Capacity (L)")} · Baseline ${displayTableValue(desktop, "Stock (L)")}`;
           const variance = document.createElement("span");
-          variance.textContent = tank[8] == null ? "Variance —" : `Variance ${displayTableValue(tank[8], "Variance (L)")}`;
+          const tankVariance = Number(tank[8] || 0);
+          variance.textContent = tank[8] == null
+            ? "Dip variance pending dip"
+            : `Dip variance ${tankVariance >= 0 ? "+" : ""}${displayTableValue(tankVariance, "Variance (L)")}`;
+          variance.style.color = tank[8] == null ? "#a8b5c7" : tankVariance < 0 ? "#f87171" : tankVariance > 0 ? "#22c55e" : "#a8b5c7";
           meta.append(amount, variance);
           card.append(title, meter, meta);
           tankLevels.appendChild(card);
         });
-        renderSimpleTable(
-          document.getElementById("portal-prices"),
-          ["Product", "Current Price", "Previous Price"],
-          metrics.selling_prices || [],
-        );
-        const variances = tankRows
-          .map(tank => tank[6])
-          .filter(value => typeof value === "number");
-        const totalVariance = variances.reduce((total, value) => total + value, 0);
-        document.getElementById("portal-variance-total").textContent =
-          `Daily combined variance: ${totalVariance >= 0 ? "+" : ""}${totalVariance.toLocaleString(undefined, { maximumFractionDigits: 2 })} L`;
+        const dailyVariance = Number(metrics.daily_tank_variance ??
+          (metrics.tank_levels || []).reduce((total, tank) => total + (tank[8] == null ? 0 : Number(tank[8])), 0));
+        const dailyVarianceLabel = document.getElementById("portal-daily-tank-variance");
+        dailyVarianceLabel.textContent = `Daily combined variance: ${dailyVariance >= 0 ? "+" : ""}${litres(dailyVariance)}`;
+        dailyVarianceLabel.style.color = dailyVariance < 0 ? "#f87171" : dailyVariance > 0 ? "#22c55e" : "#a8b5c7";
+        const tankVarianceList = document.getElementById("portal-tank-variances");
+        tankVarianceList.replaceChildren();
+        (metrics.tank_levels || []).forEach(tank => {
+          const item = document.createElement("div");
+          const variance = tank[8];
+          const sold = Number(tank[4] || 0);
+          const tankName = `${tank[0] || "Tank"} ${tank[1] || ""}`.trim();
+          item.className = "portal-tank-variance";
+          if (variance == null) {
+            item.classList.add("neutral");
+            item.textContent = `${tankName}: ${litres(sold)} sold | no dip`;
+          } else if (Number(variance) < 0) {
+            item.classList.add("loss");
+            item.textContent = `${tankName}: shortage ${litres(variance)}`;
+          } else if (Number(variance) > 0) {
+            item.textContent = `${tankName}: overage +${litres(variance)}`;
+          } else {
+            item.classList.add("neutral");
+            item.textContent = `${tankName}: no overage/shortage (0.00 L)`;
+          }
+          tankVarianceList.appendChild(item);
+        });
+        const bottomKpis = document.getElementById("portal-dashboard-kpis");
+        bottomKpis.replaceChildren();
+        [
+          ["Cash Short / Over", metrics.cash_short_over, Number(metrics.cash_short_over || 0) < 0 ? "#f87171" : "#22c55e", money(metrics.cash_short_over)],
+          ["RTT", metrics.rtt_litres, "#38bdf8", litres(metrics.rtt_litres)],
+          ["RTT Cost", metrics.rtt_cost, "#fbbf24", money(metrics.rtt_cost)],
+          ["Expenses", metrics.expenses, "#fbbf24", money(metrics.expenses)],
+        ].forEach(([label, _value, color, formatted]) => {
+          const card = document.createElement("div");
+          card.className = "portal-dashboard-mini-kpi";
+          const title = document.createElement("span");
+          title.textContent = label;
+          const amount = document.createElement("strong");
+          amount.textContent = formatted;
+          amount.style.color = color;
+          card.append(title, amount);
+          bottomKpis.appendChild(card);
+        });
+        const priceList = document.getElementById("portal-prices");
+        priceList.replaceChildren();
+        (metrics.selling_prices || []).forEach(([product, currentPrice, previousPrice]) => {
+          const item = document.createElement("div");
+          item.className = "portal-price-item";
+          const productName = document.createElement("span");
+          productName.textContent = String(product || "").toUpperCase();
+          const price = document.createElement("strong");
+          price.textContent = `${money(currentPrice)} / L`;
+          const change = document.createElement("small");
+          if (previousPrice == null || Number(previousPrice) === 0) {
+            change.textContent = "No previous price";
+          } else {
+            const percent = (Number(currentPrice) - Number(previousPrice)) / Number(previousPrice) * 100;
+            change.textContent = percent > 0 ? `▲ ${percent.toFixed(1)}% from last price`
+              : percent < 0 ? `▼ ${Math.abs(percent).toFixed(1)}% from last price`
+                : "No change from last price";
+            change.style.color = percent > 0 ? "#22c55e" : percent < 0 ? "#f87171" : "#a8b5c7";
+          }
+          item.append(productName, price, change);
+          priceList.appendChild(item);
+        });
         const lowStock = metrics.low_stock_tanks || [];
         document.getElementById("portal-stock-warning").textContent = lowStock.length
           ? `Restock advised: ${lowStock.map(tank => `${tank[0]} ${tank[1]} (${displayTableValue(tank[2], "Stock (L)")})`).join(", ")}`
-          : tankRows.length ? "All tanks are above the low-stock threshold." : "No tanks have been added.";
+          : (metrics.tank_levels || []).length ? "All tanks are above the low-stock threshold." : "No tanks have been added.";
+        if (!metrics.selling_prices?.length) priceList.textContent = "No selling prices recorded in Accounts.";
         publishedReports = reports.data.reports;
         publishedSummary = reports.data.summary || {};
-        reportSelect.replaceChildren();
-        const summaryOption = document.createElement("option");
-        summaryOption.value = "Summary";
-        summaryOption.textContent = "Summary";
-        reportSelect.appendChild(summaryOption);
-        Object.keys(publishedReports).forEach(name => {
-          const option = document.createElement("option");
-          option.value = name;
-          option.textContent = name;
-          reportSelect.appendChild(option);
+        const previousReport = activeReport;
+        reportTabs.replaceChildren();
+        ["Summary", ...Object.keys(publishedReports)].forEach(name => {
+          const tab = document.createElement("button");
+          tab.type = "button";
+          tab.setAttribute("role", "tab");
+          tab.dataset.report = name;
+          tab.textContent = name;
+          tab.addEventListener("click", () => renderReport(name));
+          reportTabs.appendChild(tab);
         });
+        activeReport = Array.from(reportTabs.children)
+          .some(tab => tab.dataset.report === previousReport)
+          ? previousReport : "Summary";
         document.getElementById("portal-report-period").textContent =
           `Showing report data from ${reports.data.period.from} to ${reports.data.period.to}, as selected in the app.`;
         portalData.hidden = false;
-        renderReport(reportSelect.value || "Summary");
+        renderReport(activeReport);
       }
 
       async function connect(token, saveSession = false) {
         accessToken = token;
+        const profile = await fetchJson(`${apiBase}/api/v1/me`);
+        memberRole = profile.role || "";
+        const entryTab = document.getElementById("portal-entry-tab");
+        entryTab.hidden = !["staff", "admin", "super_admin"].includes(memberRole);
+        if (!entryTab.hidden) {
+          const today = new Date();
+          const localToday = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+          document.querySelectorAll("[data-entry-form] input[type=date]").forEach(input => {
+            if (!input.value) input.value = localToday;
+          });
+          try { await refreshEntryHistory(); }
+          catch (error) { document.getElementById("portal-entry-list").textContent = error.message; }
+        }
         const snapshots = await fetchJson(`${apiBase}/api/v1/snapshot`);
         renderSnapshots(snapshots);
         if (saveSession) sessionStorage.setItem(storageKey, token);
@@ -1994,15 +2439,56 @@
         const portalTabs = [
           [document.getElementById("portal-dashboard-tab"), document.getElementById("portal-dashboard-view")],
           [document.getElementById("portal-reports-tab"), document.getElementById("portal-reports-view")],
+          [document.getElementById("portal-entry-tab"), document.getElementById("portal-entry-view")],
         ];
         portalTabs.forEach(([tab, panel]) => {
           tab.addEventListener("click", () => {
+            if (tab.hidden) return;
             portalTabs.forEach(([otherTab, otherPanel]) => {
               const selected = otherTab === tab;
               otherTab.setAttribute("aria-selected", String(selected));
               otherPanel.hidden = !selected;
             });
           });
+        });
+        document.querySelectorAll("[data-entry-form]").forEach(form => {
+          form.addEventListener("submit", async event => {
+            event.preventDefault();
+            const message = form.querySelector(".portal-entry-message");
+            const submit = form.querySelector("button[type=submit]");
+            const payload = Object.fromEntries(new FormData(form).entries());
+            for (const [key, value] of Object.entries(payload)) {
+              if (["opening_meter", "closing_meter", "opening_dip", "closing_dip", "rtt_litres", "cash_collected", "pos_amount", "expenses", "invoice_quantity", "actual_quantity", "cost_per_litre", "amount"].includes(key)) {
+                payload[key] = value === "" ? 0 : Number(value);
+              }
+            }
+            submit.disabled = true;
+            message.style.color = "#38bdf8";
+            message.textContent = "Submitting securely…";
+            try {
+              const response = await fetch(`${apiBase}/api/v1/entries`, {
+                method: "POST",
+                headers: { apikey: publishableKey, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ entry_type: form.dataset.entryForm, payload })
+              });
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || "Could not submit this entry.");
+              message.textContent = `Saved securely in the website queue · reference ${result.entry_id.slice(0, 8)}. Local station records have not been updated yet.`;
+              form.reset();
+              const localToday = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+              form.querySelectorAll("input[type=date]").forEach(input => input.value = localToday);
+              await refreshEntryHistory();
+            } catch (error) {
+              message.textContent = error.message;
+              message.style.color = "#f87171";
+            } finally {
+              submit.disabled = false;
+            }
+          });
+        });
+        document.getElementById("portal-entry-refresh").addEventListener("click", async () => {
+          try { await refreshEntryHistory(); }
+          catch (error) { document.getElementById("portal-entry-list").textContent = error.message; }
         });
         login.addEventListener("submit", async event => {
           event.preventDefault();
@@ -2057,11 +2543,10 @@
             handlePortalError(error);
           }
         });
-        reportSelect.addEventListener("change", () => renderReport(reportSelect.value));
         document.querySelectorAll("[data-export]").forEach(button => {
           button.addEventListener("click", async () => {
             const format = button.dataset.export;
-            const report = reportSelect.value;
+            const report = activeReport;
             try {
               const response = await fetch(
                 `${apiBase}/api/v1/export?report=${encodeURIComponent(report)}&format=${format}`,

@@ -2,7 +2,7 @@ body {
   background: var(--bg);
 }
 
-:root {
+git add .:root {
   color-scheme: dark;
   --bg: #0e131c;
   --panel: #192433;

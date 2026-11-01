@@ -4,6 +4,7 @@ import json
 import mimetypes
 import os
 import threading
+import time
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,7 +75,7 @@ def configuration_error():
     return None
 
 
-def _publisher_request(path, data=None, headers=None, method=None):
+def _publisher_request(path, data=None, headers=None, method=None, timeout=30):
     error = configuration_error()
     if error:
         raise ValueError(error)
@@ -84,11 +85,13 @@ def _publisher_request(path, data=None, headers=None, method=None):
         "X-CLEON-Publish-Token": token,
         "apikey": SUPABASE_PUBLISHABLE_KEY,
     }
+    if headers:
+        request_headers.update(headers)
     request = Request(
         f"{base_url}{path}", data=data, headers=request_headers, method=method
     )
     try:
-        with urlopen(request, timeout=30) as response:
+        with urlopen(request, timeout=timeout) as response:
             return response.read(), response.headers
     except HTTPError as error:
         try:
@@ -103,7 +106,20 @@ def _publisher_request(path, data=None, headers=None, method=None):
 
 
 def list_published_documents():
-    body, _headers = _publisher_request("/api/v1/documents")
+    last_error = None
+    for attempt in range(2):
+        try:
+            body, _headers = _publisher_request(
+                "/api/v1/documents", timeout=60
+            )
+            break
+        except RuntimeError as error:
+            last_error = error
+            if attempt or "timed out" not in str(error).casefold():
+                raise
+            time.sleep(1)
+    else:
+        raise last_error
     try:
         result = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
@@ -142,6 +158,32 @@ def download_published_document(document_id):
         f"/api/v1/documents/{quote(document_id, safe='')}?download=1"
     )
     return body
+
+
+def list_pending_station_entries():
+    """Read routine entries submitted through the assigned-user portal."""
+    body, _headers = _publisher_request("/api/v1/entries/pending", timeout=30)
+    try:
+        result = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise RuntimeError("Website API returned an invalid entry queue.") from error
+    entries = result.get("entries")
+    if not isinstance(entries, list):
+        raise RuntimeError("Website API returned an invalid entry queue.")
+    return entries
+
+
+def update_station_entry_result(entry_id, status, note=""):
+    if status not in ("accepted", "rejected"):
+        raise ValueError("Station entry result must be accepted or rejected.")
+    body = json.dumps({"status": status, "note": str(note or "")[:500]}).encode("utf-8")
+    _publisher_request(
+        f"/api/v1/entries/{quote(str(entry_id), safe='')}/result",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+        timeout=30,
+    )
 
 
 def publish_snapshot(master, section, payload, on_result):
