@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="500" viewBox="0 0 1600 500">
+  <title>CLEON Oil &amp; Gas</title>
+  <desc>Text-only CLEON Oil and Gas wordmark in navy and orange, with a navy underline beneath ON.</desc>
+  <text x="70" y="270" font-family="Segoe UI, Arial, sans-serif" font-size="210" font-weight="700" letter-spacing="3">
+    <tspan fill="#10182A">CLE</tspan><tspan fill="#EC7624">ON</tspan>
+  </text>
+  <line x1="70" y1="294" x2="427" y2="294" stroke="#EC7624" stroke-width="8" />
+  <line x1="427" y1="294" x2="735" y2="294" stroke="#10182A" stroke-width="8" />
+  <text x="84" y="365" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="600" letter-spacing="10" fill="#EC7624">OIL &amp; GAS</text>
+</svg>

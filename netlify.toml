@@ -1,0 +1,6 @@
+[build]
+  command = "python build_website.py"
+  publish = "website-build"
+
+[build.environment]
+  CLEON_WEBSITE_API_URL = "https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal"

@@ -1,0 +1,7 @@
+CLEON Company Profile assets
+
+cleon-logo-dark-background.png: source logo supplied for dark surfaces.
+cleon-logo-white-background.png: retained optional light-surface derivative.
+oil-and-gas-hero-source.png: original user-supplied photograph.
+oil-and-gas-hero-dark-blend.png and oil-and-gas-hero-white-blend.png: soft-edge blends for profile covers.
+The profile source documents are editable Microsoft Word DOCX files.

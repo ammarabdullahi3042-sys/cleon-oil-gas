@@ -1,0 +1,4 @@
+project_id = "efpocgthifwgzgnuwgae"
+
+[functions.cleon-portal]
+verify_jwt = false

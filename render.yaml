@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: cleon-website-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: python website_api.py
+    disk:
+      name: website-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: CLEON_WEBSITE_API_HOST
+        value: 0.0.0.0
+      - key: CLEON_WEBSITE_API_DATABASE
+        value: /var/data/website_snapshots.db
+      - key: CLEON_WEBSITE_ALLOWED_ORIGIN
+        value: https://ammarabdullahi3042-sys.github.io
+      - key: CLEON_WEBSITE_PUBLISH_TOKEN
+        sync: false
+  - type: web
+    name: cleon-website
+    runtime: static
+    buildCommand: python build_website.py
+    staticPublishPath: ./website-build
