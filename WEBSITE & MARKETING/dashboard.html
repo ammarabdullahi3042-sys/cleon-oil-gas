@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
+  <title>Member dashboard | CLEON Oil &amp; Gas</title>
+  <link rel="stylesheet" href="portal.css">
+  <script src="portal.js" defer></script>
+</head>
+<body data-portal-page="dashboard">
+  <header class="site-header">
+    <a class="brand" href="index.html">CLEON <span>OIL &amp; GAS</span></a>
+    <nav aria-label="Member navigation">
+      <a href="dashboard.html" data-page-link="dashboard" aria-current="page">Dashboard</a>
+      <a href="reports.html" data-page-link="reports">Reports</a>
+      <a href="profile.html" data-page-link="profile">Profile</a>
+      <button class="text-button" type="button" data-sign-out>Sign out</button>
+    </nav>
+  </header>
+  <main class="wrap">
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Member portal</p>
+        <h1>Operations dashboard</h1>
+        <p id="dashboard-updated" class="muted">Loading published data…</p>
+      </div>
+      <button class="button secondary" type="button" data-refresh>Refresh</button>
+    </div>
+    <p id="page-status" class="status" role="status" aria-live="polite"></p>
+    <section id="dashboard-kpis" class="kpi-grid" aria-label="Operations summary"></section>
+    <section class="panel">
+      <h2>Tank levels</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tank</th><th>Product</th><th>Stock (L)</th><th>Capacity (L)</th><th>Sold today (L)</th><th>Received today (L)</th><th>Variance (L)</th></tr></thead>
+          <tbody id="tank-rows"><tr><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <p id="stock-warning" class="muted"></p>
+    </section>
+    <section class="panel">
+      <h2>Selling prices</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Product</th><th>Current price</th><th>Previous price</th></tr></thead>
+          <tbody id="price-rows"><tr><td colspan="3">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">CLEON Oil &amp; Gas Ltd · Flexible energy. Reliable service.</footer>
+</body>
+</html>
