@@ -473,6 +473,7 @@ h1,h2,.brand{font-family:"Segoe UI",Arial,sans-serif}
 .site-header{background:#10182A;border:0;border-right:1px solid #2A3749}
 .brand{color:#F3F6FA}
 .brand span{color:#A8B5C7}
+.brand-logo{display:block;width:202px;max-width:100%;height:auto;object-fit:contain}
 .panel,.kpi{border-radius:14px;background:#141E2D;border-color:#2A3749;box-shadow:none}
 @media(min-width:1000px){.site-header{position:fixed;z-index:20;inset:0 auto 0 0;width:250px;min-height:100vh;align-items:stretch;justify-content:flex-start;flex-direction:column;padding:24px 16px;overflow-y:auto}.site-header nav{align-items:stretch;flex-direction:column;gap:5px;margin-top:28px}.site-header nav a,.site-header .text-button{display:block;padding:11px 12px;border-radius:8px;text-align:left}.site-header nav a[aria-current="page"]{background:#202C3E;color:#F3F6FA;border-left:3px solid #EC7624}.wrap{width:calc(100% - 290px);max-width:none;margin:28px 20px 48px 270px}.site-footer{margin-left:250px}}
 @media(max-width:999px){.site-header{background:#10182A}.wrap{margin-top:24px}}
