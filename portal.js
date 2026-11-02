@@ -567,6 +567,17 @@
         setStatus(error.message, true);
       }
     });
+    document.getElementById("register-form")?.addEventListener("submit", async event => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      setStatus("Submitting your access request…");
+      try {
+        requireApi();
+        await requestJson("/api/v1/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), email: form.get("email"), role: form.get("role"), password: form.get("password") }) });
+        event.currentTarget.reset();
+        setStatus("Request received. A CLEON super admin must approve it before you can sign in.");
+      } catch (error) { setStatus(error.message, true); }
+    });
   } else {
     if (!token) {
       window.location.replace("login.html");

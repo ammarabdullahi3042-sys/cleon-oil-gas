@@ -185,6 +185,56 @@ async function login(body: Record<string, unknown>): Promise<Response> {
   });
 }
 
+async function register(body: Record<string, unknown>): Promise<Response> {
+  if (!anonKey || !admin) throw new ApiError(503, "Portal registration is not configured.");
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  const fullName = typeof body.name === "string" ? body.name.trim() : "";
+  const requestedRole = typeof body.role === "string" ? body.role : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new ApiError(400, "Enter a valid email address.");
+  if (password.length < 12 || password.length > 128) throw new ApiError(400, "Password must be at least 12 characters.");
+  if (!fullName || fullName.length > 100) throw new ApiError(400, "Enter your full name.");
+  if (!["member", "staff", "admin"].includes(requestedRole)) throw new ApiError(400, "Choose a valid access role.");
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: false, user_metadata: { full_name: fullName } });
+  if (error || !data.user) throw new ApiError(400, "Could not create the account. The email may already be registered.");
+  const { error: requestError } = await admin.from("website_registration_requests").insert({ user_id: data.user.id, full_name: fullName, requested_role: requestedRole });
+  if (requestError) {
+    await admin.auth.admin.deleteUser(data.user.id);
+    console.error("registration request insert failed", requestError);
+    throw new ApiError(500, "Could not save the access request.");
+  }
+  return json(201, { request_submitted: true });
+}
+
+async function reviewRegistration(request: Request, method: string): Promise<Response> {
+  const reviewer = await memberFor(request);
+  if (reviewer.role !== "super_admin") throw new ApiError(403, "Only a super admin can review account requests.");
+  if (method === "GET") {
+    const { data, error } = await admin.from("website_registration_requests").select("request_id,user_id,full_name,requested_role,created_at").eq("status", "pending").order("created_at", { ascending: true });
+    if (error) throw new ApiError(500, "Could not load registration requests.");
+    const rows = await Promise.all((data ?? []).map(async (row) => {
+      const { data: userData } = await admin.auth.admin.getUserById(row.user_id);
+      return { ...row, email: userData.user?.email ?? "" };
+    }));
+    return json(200, { requests: rows });
+  }
+  const body = await readJson(request, 16 * 1024);
+  const id = typeof body.request_id === "string" ? body.request_id : "";
+  const decision = body.decision;
+  if (!id || !["approve", "reject"].includes(String(decision))) throw new ApiError(400, "Choose an account request and approve or reject it.");
+  const { data: row, error } = await admin.from("website_registration_requests").select("user_id,requested_role,status").eq("request_id", id).maybeSingle();
+  if (error || !row || row.status !== "pending") throw new ApiError(404, "That pending request was not found.");
+  if (decision === "approve") {
+    const { error: roleError } = await admin.from("website_member_roles").upsert({ user_id: row.user_id, role: row.requested_role, active: true });
+    if (roleError) throw new ApiError(500, "Could not grant portal access.");
+    await admin.auth.admin.updateUserById(row.user_id, { email_confirm: true });
+  }
+  const { error: updateError } = await admin.from("website_registration_requests").update({ status: decision === "approve" ? "approved" : "rejected", reviewed_at: new Date().toISOString(), reviewed_by: reviewer.id }).eq("request_id", id).eq("status", "pending");
+  if (updateError) throw new ApiError(500, "Could not record the review decision.");
+  if (decision === "reject") await admin.auth.admin.deleteUser(row.user_id);
+  return json(200, { reviewed: true });
+}
+
 function validSnapshot(section: string, payload: Record<string, unknown>): boolean {
   if (typeof payload.published_at !== "string" || !Number.isFinite(Date.parse(payload.published_at))) return false;
   if (section === "dashboard") return typeof payload.date === "string" && !!payload.metrics && typeof payload.metrics === "object";
@@ -335,6 +385,8 @@ async function handler(request: Request): Promise<Response> {
   console.log("publisher_match", publisher);
 
   if (method === "POST" && path === "/api/v1/login") return await login(await readJson(request, 16 * 1024));
+  if (method === "POST" && path === "/api/v1/register") return await register(await readJson(request, 16 * 1024));
+  if (path === "/api/v1/registration-requests" && ["GET", "POST"].includes(method)) return await reviewRegistration(request, method);
   if (method === "POST" && path === "/api/v1/logout") {
     const token = bearer(request);
     if (token) await authRequest("logout", token).catch(() => undefined);

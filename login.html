@@ -28,6 +28,16 @@
         <input id="member-password" name="password" type="password" autocomplete="current-password" required>
         <button class="button" type="submit">Sign in securely</button>
       </form>
+      <hr>
+      <h2>Request a portal account</h2>
+      <p class="muted">Create an account request for member, staff, or admin access. A CLEON super admin must approve it before you can sign in.</p>
+      <form id="register-form" class="form">
+        <label for="register-name">Full name</label><input id="register-name" name="name" autocomplete="name" required maxlength="100">
+        <label for="register-email">Email address</label><input id="register-email" name="email" type="email" autocomplete="email" required>
+        <label for="register-role">Access requested</label><select id="register-role" name="role" required><option value="member">Member</option><option value="staff">Staff</option><option value="admin">Admin</option></select>
+        <label for="register-password">Create password</label><input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+        <button class="button" type="submit">Submit account request</button>
+      </form>
       <p id="page-status" class="status" role="status" aria-live="polite"></p>
     </section>
   </main>

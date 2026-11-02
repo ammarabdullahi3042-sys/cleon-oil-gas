@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
+  <title>Account requests | CLEON</title>
+  <link rel="stylesheet" href="portal.css?v=125">
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="index.html">CLEON <span>OIL &amp; GAS</span></a><nav><a href="index.html">Home</a><a href="login.html">Sign in</a></nav></header>
+  <main class="wrap"><section class="panel"><p class="eyebrow">Super admin</p><h1>Account requests</h1><p class="muted">Review signup requests and grant the requested member, staff, or admin role. Only super admins can approve accounts.</p><button id="load" class="button">Refresh requests</button><p id="status" class="status" role="status" aria-live="polite"></p><div id="requests"></div></section></main>
+  <script>
+  const api=document.querySelector('meta[name="cleon-api-url"]').content.replace(/\/+$/,'');
+  const key='sb_publishable_0sjd4-0ktuqR-lCY6j8fdA_qFCqBsJn';
+  const status=document.getElementById('status'), root=document.getElementById('requests');
+  async function call(method='GET',body){const token=sessionStorage.getItem('cleon-portal-token');if(!token)throw Error('Sign in as a super admin, then reopen this page.');const r=await fetch(api+'/api/v1/registration-requests',{method,headers:{apikey:key,Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');return data}
+  async function load(){root.replaceChildren();status.textContent='Loading requests…';try{const {requests}=await call();if(!requests.length){status.textContent='There are no pending requests.';return}status.textContent='';for(const request of requests){const card=document.createElement('article');card.className='panel';card.style.marginTop='16px';const name=document.createElement('h2');name.textContent=request.full_name;const details=document.createElement('p');details.className='muted';details.textContent=request.email+' · '+request.requested_role+' · '+new Date(request.created_at).toLocaleString();card.append(name,details);for(const decision of ['approve','reject']){const button=document.createElement('button');button.className='button';button.style.marginRight='8px';button.textContent=decision==='approve'?'Approve':'Reject';button.onclick=async()=>{button.disabled=true;try{await call('POST',{request_id:request.request_id,decision});await load()}catch(error){status.textContent=error.message;button.disabled=false}};card.append(button)}root.append(card)}}catch(error){status.textContent=error.message}}
+  document.getElementById('load').addEventListener('click',load);load();
+  </script>
+</body>
+</html>
