@@ -11,6 +11,8 @@ body {
   --gold: #e0c088;
   --ember: #ec7722;
   --line: #2b3c4f;
+  --surface: #121b28;
+  --accent: #ec7722;
   --on-gold: #0e131c;
 }
 
@@ -454,6 +456,14 @@ th {
 .erp-card {
   animation: fadeUp .25s ease;
 }
+
+.report-tabs{display:flex;gap:8px;overflow:auto;padding:8px 0;margin:8px 0;border-bottom:1px solid var(--line);scrollbar-width:thin}
+.report-tab{flex:0 0 auto;border:1px solid var(--line);border-radius:8px;padding:9px 13px;background:var(--surface);color:var(--text);font:inherit;cursor:pointer}
+.report-tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.report-chart{display:grid;grid-template-columns:minmax(130px,1fr) minmax(120px,3fr) minmax(90px,1fr);gap:10px 14px;align-items:center;padding:14px 0}
+.report-chart-bar{height:14px;background:var(--surface);border-radius:99px;overflow:hidden}.report-chart-bar i{display:block;height:100%;background:var(--accent);border-radius:inherit}
+.variance-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}.variance-row{display:flex;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+@media(max-width:600px){.report-chart{grid-template-columns:1fr minmax(70px,1fr);gap:8px}.report-chart-bar{grid-column:1 / -1;grid-row:auto}.report-chart strong{justify-self:end}}
 
 @keyframes fadeUp {
   from {

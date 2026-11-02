@@ -227,6 +227,19 @@
       ? `Restock advised: ${lowStock.map(tank => `${tank[0]} ${tank[1]} (${displayValue(tank[2], "Stock (L)")})`).join(", ")}`
       : tankRows.length ? "All tanks are above the low-stock threshold." : "No tanks have been added.";
 
+    const variance = document.getElementById("tank-variance");
+    variance.replaceChildren();
+    (metrics.tank_levels || []).forEach(tank => {
+      const row = document.createElement("div");
+      row.className = "variance-row";
+      const label = document.createElement("span");
+      label.textContent = `${tank[0]} · ${tank[1]}`;
+      const value = document.createElement("strong");
+      value.textContent = displayValue(tank[8], "L");
+      row.append(label, value);
+      variance.append(row);
+    });
+
     renderTable(
       document.querySelector("#price-rows").closest("table").tHead,
       document.getElementById("price-rows"),
@@ -245,6 +258,23 @@
     summary.replaceChildren();
     Object.entries(reportData.summary?.cards || {}).forEach(([label, value]) => addKpi(summary, label, value));
 
+    const chart = document.getElementById("report-chart");
+    chart.replaceChildren();
+    const chartRows = reportData.summary?.chart || [];
+    chartRows.forEach(item => {
+      const label = document.createElement("span");
+      label.textContent = item[0];
+      const bar = document.createElement("div");
+      bar.className = "report-chart-bar";
+      const fill = document.createElement("i");
+      const max = Math.max(1, ...chartRows.map(row => Math.abs(Number(row[1]) || 0)));
+      fill.style.width = `${Math.max(2, Math.abs(Number(item[1]) || 0) / max * 100)}%`;
+      bar.append(fill);
+      const value = document.createElement("strong");
+      value.textContent = displayValue(item[1]);
+      chart.append(label, bar, value);
+    });
+
     const select = document.getElementById("report-select");
     const previous = select.value;
     select.replaceChildren();
@@ -254,6 +284,23 @@
       option.value = name;
       option.textContent = name;
       select.appendChild(option);
+    });
+
+    const tabs = document.getElementById("report-tabs");
+    tabs.replaceChildren();
+    ["Summary", ...Object.keys(reports), "Documents"].forEach(name => {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "report-tab";
+      tab.textContent = name;
+      tab.setAttribute("aria-pressed", "false");
+      tab.addEventListener("click", () => {
+        if (name === "Documents") { document.getElementById("published-documents").scrollIntoView({ behavior: "smooth" }); return; }
+        if (name === "Summary") { select.value = ""; renderSelectedReport(); return; }
+        select.value = name;
+        renderSelectedReport();
+      });
+      tabs.appendChild(tab);
     });
 
     if (Object.hasOwn(reports, previous)) select.value = previous;
@@ -349,6 +396,9 @@
 
   function renderSelectedReport() {
     const report = reports[document.getElementById("report-select").value];
+    document.querySelectorAll(".report-tab").forEach(tab => {
+      tab.setAttribute("aria-pressed", String(tab.textContent === (report ? document.getElementById("report-select").value : "Summary")));
+    });
     if (!report) {
       renderTable(document.getElementById("report-head"), document.getElementById("report-rows"), [], []);
       return;

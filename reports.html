@@ -35,16 +35,18 @@
     </div>
     <p id="page-status" class="status" role="status" aria-live="polite"></p>
     <section id="report-summary" class="kpi-grid" aria-label="Report summary"></section>
+    <section class="panel"><h2>Profit &amp; loss and tank variance</h2><div id="report-chart" class="report-chart" aria-label="Profit and loss breakdown chart"></div></section>
     <section class="panel">
       <div class="report-controls">
-        <label for="report-select">Report</label>
-        <select id="report-select"></select>
+        <label for="report-select">Report tab</label>
+        <select id="report-select"><option value="">Summary</option></select>
         <div id="report-exports" class="report-exports" hidden>
           <button class="button secondary" type="button" data-export="csv">Export CSV</button>
           <button class="button secondary" type="button" data-export="xlsx">Export Excel</button>
           <button class="button secondary" type="button" data-export="pdf">Export PDF</button>
         </div>
       </div>
+      <nav id="report-tabs" class="report-tabs" aria-label="Report centre tabs"></nav>
       <div class="table-wrap">
         <table>
           <thead id="report-head"></thead>
@@ -56,7 +58,7 @@
         </table>
       </div>
     </section>
-    <section class="panel">
+    <section class="panel" id="published-documents">
       <h2>Published documents</h2>
       <p class="muted">PDFs and images can be previewed here. Administrators can download documents from the desktop
         Reports Centre.</p>
