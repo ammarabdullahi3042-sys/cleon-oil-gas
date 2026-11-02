@@ -776,6 +776,15 @@ class ReportWindow(ctk.CTkFrame):
                     for title, label in self.summary_cards.items()
                 },
                 "chart": list(self._chart_values),
+                "inventory": self.baseline_info.cget("text"),
+            }
+            email_sender, email_recipient, email_enabled, _email_status = (
+                product_finished_email_settings(DATABASE)
+            )
+            summary["email"] = {
+                "sender": email_sender,
+                "recipient": email_recipient,
+                "enabled": email_enabled,
             }
         except (ValueError, sqlite3.Error) as error:
             self.website_sync_status.configure(

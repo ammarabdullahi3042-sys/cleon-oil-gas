@@ -185,28 +185,28 @@
 
   function renderDashboard(snapshots) {
     const dashboard = snapshots.dashboard;
-    const reportsSnapshot = snapshots.reports;
-
-    if (!dashboard || !reportsSnapshot) {
-      throw new Error("The app has not published both dashboard and reports yet.");
-    }
+    if (!dashboard) throw new Error("The desktop app has not published a dashboard snapshot yet.");
 
     const metrics = dashboard.data.metrics || {};
-    const kpis = document.getElementById("dashboard-kpis");
-    kpis.replaceChildren();
-
-    [
-      ["Sales", metrics.sales_amount],
-      ["Fuel Stock", metrics.fuel_stock],
-      ["Net Litres Sold", metrics.litres_sold],
-      ["Cash Short / Over", metrics.cash_short_over],
-      ["RTT", metrics.rtt_litres],
-      ["RTT Cost", metrics.rtt_cost],
-      ["Expenses", metrics.expenses],
-      ["Cash Collected", metrics.cash_collected],
-      ["POS Collected", metrics.pos_collected],
-      ["Expected Sales", metrics.expected_sales],
-    ].forEach(([label, value]) => addKpi(kpis, label, value));
+    const money = value => displayValue(Number(value || 0), "sales");
+    const litres = value => displayValue(Number(value || 0), "litres");
+    document.getElementById("sales-value").textContent = money(metrics.sales_amount);
+    document.getElementById("cash-value").textContent = `Cash ${money(metrics.cash_collected)}`;
+    document.getElementById("pos-value").textContent = `POS ${money(metrics.pos_collected)}`;
+    document.getElementById("rtt-sales-value").textContent = `RTT ${money(metrics.rtt_sales_value)}`;
+    document.getElementById("session-expenses-value").textContent = `Expenses ${money(metrics.session_expenses)}`;
+    document.getElementById("short-over-value").textContent = `Short/Over ${money(metrics.cash_short_over)}`;
+    document.getElementById("expected-sales-value").textContent = `Expected ${money(metrics.expected_sales)}`;
+    const salesBasis = Math.max(1, Number(metrics.expected_sales || metrics.sales_amount || 0));
+    document.getElementById("cash-gauge").style.width = `${Math.min(100, Math.abs(Number(metrics.cash_collected || 0)) / salesBasis * 100)}%`;
+    document.getElementById("pos-gauge").style.width = `${Math.min(100, Math.abs(Number(metrics.pos_collected || 0)) / salesBasis * 100)}%`;
+    document.getElementById("rtt-gauge").style.width = `${Math.min(100, Math.abs(Number(metrics.cash_short_over || 0)) / salesBasis * 100)}%`;
+    document.getElementById("fuel-stock-value").textContent = litres(metrics.fuel_stock);
+    document.getElementById("litres-value").textContent = litres(metrics.litres_sold);
+    document.getElementById("cash-short-value").textContent = money(metrics.cash_short_over);
+    document.getElementById("rtt-value").textContent = litres(metrics.rtt_litres);
+    document.getElementById("rtt-cost-value").textContent = money(metrics.rtt_cost);
+    document.getElementById("expenses-value").textContent = money(metrics.expenses);
 
     const shownDate = metrics.records_date || dashboard.data.date || "—";
     const selectedDate = dashboard.data.date || "—";
@@ -217,49 +217,48 @@
         : `Showing session values for ${shownDate}.`;
     document.getElementById("dashboard-updated").textContent =
       `${dateNote} · Snapshot updated ${dashboard.updated_at || "—"}.`;
-
-    const tankRows = (metrics.tank_levels || []).map(tank => [
-      tank[0], tank[1], tank[3], tank[2], tank[4], tank[5], tank[8],
-    ]);
-
-    renderTable(
-      document.querySelector("#tank-rows").closest("table").tHead,
-      document.getElementById("tank-rows"),
-      ["Tank", "Product", "Stock (L)", "Capacity (L)", "Sold today (L)", "Received today (L)", "Variance (L)"],
-      tankRows,
-    );
-
+    const viewDate = document.getElementById("view-date");
+    if (viewDate) viewDate.value = dashboard.data.date || "";
+    const tankRows = metrics.tank_levels || [];
     const lowStock = metrics.low_stock_tanks || [];
     document.getElementById("stock-warning").textContent = lowStock.length
       ? `Restock advised: ${lowStock.map(tank => `${tank[0]} ${tank[1]} (${displayValue(tank[2], "Stock (L)")})`).join(", ")}`
       : tankRows.length ? "All tanks are above the low-stock threshold." : "No tanks have been added.";
-
+    const tankList = document.getElementById("tank-gauges");
+    tankList.replaceChildren();
+    tankRows.forEach(tank => {
+      const box = document.createElement("div"); box.className = "tank-meter";
+      const title = document.createElement("div"); title.className = "tank-meter-title"; title.textContent = `${tank[0]} | ${tank[1]}`;
+      const track = document.createElement("div"); track.className = "tank-meter-track";
+      const fill = document.createElement("i");
+      fill.style.width = `${Math.max(0, Math.min(100, Number(tank[2]) ? Number(tank[3]) / Number(tank[2]) * 100 : 0))}%`; track.append(fill);
+      const detail = document.createElement("div"); detail.className = "tank-meter-detail";
+      detail.textContent = `${litres(tank[3])} / ${litres(tank[2])} | Baseline ${litres(tank[9])} | True variance ${tank[8] == null ? "pending dip" : `${Number(tank[8]).toLocaleString()} L`}`;
+      box.append(title, track, detail); tankList.append(box);
+    });
     const variance = document.getElementById("tank-variance");
     variance.replaceChildren();
-    (metrics.tank_levels || []).forEach(tank => {
-      const row = document.createElement("div");
-      row.className = "variance-row";
-      const label = document.createElement("span");
-      label.textContent = `${tank[0]} · ${tank[1]}`;
-      const value = document.createElement("strong");
-      value.textContent = displayValue(tank[8], "L");
-      row.append(label, value);
-      variance.append(row);
-    });
-
-    renderTable(
-      document.querySelector("#price-rows").closest("table").tHead,
-      document.getElementById("price-rows"),
-      ["Product", "Current Price", "Previous Price"],
-      metrics.selling_prices || [],
-    );
+    document.getElementById("daily-variance").textContent = `Daily combined variance: ${Number(metrics.daily_tank_variance || 0) >= 0 ? "+" : ""}${Number(metrics.daily_tank_variance || 0).toLocaleString()} L`;
+    tankRows.forEach(tank => { const row = document.createElement("div"); row.className = "tank-variance-row"; const label = document.createElement("span"); const val = tank[8] == null ? "no dip" : `${Number(tank[8]) >= 0 ? "overage" : "shortage"} ${Math.abs(Number(tank[8])).toLocaleString()} L`; label.textContent = `${tank[0]} ${tank[1]}: ${litres(tank[4])} sold | ${val}`; row.append(label); variance.append(row); });
+    const priceList = document.getElementById("price-list"); priceList.replaceChildren();
+    (metrics.selling_prices || []).forEach(row => { const item = document.createElement("div"); item.className = "price-item"; const product = document.createElement("b"); product.textContent = row[0]; const price = document.createElement("strong"); price.textContent = `${money(row[1])} / L`; const previous = Number(row[2] || 0), current = Number(row[1] || 0); const change = previous ? (current - previous) / previous * 100 : 0; const changeLabel = document.createElement("small"); changeLabel.textContent = previous ? `${change >= 0 ? "▲" : "▼"} ${Math.abs(change).toFixed(1)}% from last price` : "No previous price"; item.append(product, price, changeLabel); priceList.append(item); });
+    const prev = Number(metrics.previous_sale_litres || 0), current = Number(metrics.litres_sold || 0);
+    document.getElementById("litres-comparison").textContent = prev ? `${current >= prev ? "▲" : "▼"} ${Math.abs((current - prev) / prev * 100).toFixed(1)}% vs previous sales day` : "No previous sales day";
   }
 
   function renderReports(snapshot) {
+    if (!snapshot.reports) throw new Error("The desktop app has not published a Reports Centre snapshot yet.");
     const reportData = snapshot.reports.data;
     reports = reportData.reports || {};
     document.getElementById("reports-period").textContent =
       `Published period: ${reportData.period?.from || "—"} to ${reportData.period?.to || "—"} · Updated ${snapshot.reports.updated_at || "—"}.`;
+    document.getElementById("report-from").value = reportData.period?.from || "";
+    document.getElementById("report-to").value = reportData.period?.to || "";
+    const email = reportData.summary?.email || {};
+    document.getElementById("report-email-sender").textContent = email.sender || "Set in desktop Reports Centre";
+    document.getElementById("report-email-recipient").textContent = email.recipient || "Set in desktop Reports Centre";
+    document.getElementById("report-email-status").textContent = email.enabled === false ? "Product-finished email is disabled." : "Product-finished email is enabled in the desktop app.";
+    document.getElementById("inventory-reference").textContent = reportData.summary?.inventory || "No inventory analysis published.";
 
     const summary = document.getElementById("report-summary");
     summary.replaceChildren();
@@ -267,24 +266,23 @@
 
     const chart = document.getElementById("report-chart");
     chart.replaceChildren();
-    const chartRows = reportData.summary?.chart || [];
-    chartRows.forEach(item => {
-      const label = document.createElement("span");
-      label.textContent = item[0];
-      const bar = document.createElement("div");
-      bar.className = "report-chart-bar";
-      const fill = document.createElement("i");
-      const max = Math.max(1, ...chartRows.map(row => Math.abs(Number(row[1]) || 0)));
-      fill.style.width = `${Math.max(2, Math.abs(Number(item[1]) || 0) / max * 100)}%`;
-      bar.append(fill);
-      const value = document.createElement("strong");
-      value.textContent = displayValue(item[1]);
-      chart.append(label, bar, value);
+    const chartValues = reportData.summary?.chart || [];
+    const chartLabels = ["Gross profit", "Expenses", "Attendant shorts", "Delivery shortage", "Net profit", "Dip variance less baseline cost"];
+    const max = Math.max(1, ...chartValues.map(value => Math.abs(Number(value) || 0)));
+    chartValues.forEach((raw, index) => {
+      const value = Number(raw || 0);
+      const item = document.createElement("div"); item.className = "report-chart-item";
+      const amount = document.createElement("strong"); amount.className = "report-chart-value"; amount.textContent = `${value < 0 ? "NGN -" : "NGN +"}${Math.abs(value).toLocaleString(undefined,{maximumFractionDigits:0})}`;
+      const bar = document.createElement("div"); bar.className = "report-chart-bar";
+      const fill = document.createElement("i"); fill.style.height = `${Math.max(2, Math.abs(value) / max * 100)}%`; bar.append(fill);
+      const label = document.createElement("span"); label.className = "report-chart-label"; label.textContent = chartLabels[index] || `Value ${index + 1}`;
+      item.append(amount, bar, label); chart.append(item);
     });
 
     const select = document.getElementById("report-select");
     const previous = select.value;
     select.replaceChildren();
+    select.appendChild(new Option("Summary", ""));
 
     Object.keys(reports).forEach(name => {
       const option = document.createElement("option");

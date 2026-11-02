@@ -1,81 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
-  <title>Reports | CLEON Oil &amp; Gas</title>
-  <link rel="stylesheet" href="portal.css?v=128">
-  <script src="portal.js?v=4" defer></script>
-</head>
-
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal"><title>Reports Centre | CLEON</title><link rel="stylesheet" href="portal.css?v=129"><script src="portal.js?v=5" defer></script></head>
 <body data-portal-page="reports">
-  <header class="site-header">
-    <a class="brand" href="index.html" aria-label="CLEON Oil and Gas home"><img class="brand-logo" src="cleon-logo-for-dark-backgrounds.png" alt="CLEON Oil &amp; Gas"></a>
-    <nav aria-label="Member navigation">
-      <a href="dashboard.html" data-page-link="dashboard">Dashboard</a>
-      <a href="reports.html" data-page-link="reports" aria-current="page">Reports</a>
-      <a href="profile.html" data-page-link="profile">Profile</a>
-      <a href="pump-session.html" data-page-link="pump-session">Pump session</a>
-      <a href="fuel-receipt.html" data-page-link="fuel-receipt">Fuel receipt</a>
-      <a href="account-activity.html" data-page-link="account-activity">Account activity</a>
-      <a href="expenses.html" data-page-link="expenses">Expenses</a>
-      <a href="tank-dip.html" data-page-link="tank-dip">Tank dip</a>
-      <button class="text-button" type="button" data-sign-out>Sign out</button>
-    </nav>
-  </header>
-  <main class="wrap">
-    <div class="page-heading">
-      <div>
-        <p class="eyebrow">Operations portal</p>
-        <h1>Reports centre</h1>
-        <p id="reports-period" class="muted">Loading published reports…</p>
-      </div>
-      <button class="button secondary" type="button" data-refresh>Refresh</button>
-    </div>
-    <p id="page-status" class="status" role="status" aria-live="polite"></p>
-    <section id="report-summary" class="kpi-grid" aria-label="Report summary"></section>
-    <section class="panel"><h2>Profit &amp; loss and tank variance</h2><div id="report-chart" class="report-chart" aria-label="Profit and loss breakdown chart"></div></section>
-    <section class="panel">
-      <div class="report-controls">
-        <label for="report-select">Report tab</label>
-        <select id="report-select"><option value="">Summary</option></select>
-        <div id="report-exports" class="report-exports" hidden>
-          <button class="button secondary" type="button" data-export="csv">Export CSV</button>
-          <button class="button secondary" type="button" data-export="xlsx">Export Excel</button>
-          <button class="button secondary" type="button" data-export="pdf">Export PDF</button>
-        </div>
-      </div>
-      <nav id="report-tabs" class="report-tabs" aria-label="Report centre tabs"></nav>
-      <div class="table-wrap">
-        <table>
-          <thead id="report-head"></thead>
-          <tbody id="report-rows">
-            <tr>
-              <td>Loading…</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-    <section class="panel" id="published-documents">
-      <h2>Published documents</h2>
-      <p class="muted">PDFs and images can be previewed here. Administrators can download documents from the desktop
-        Reports Centre.</p>
-      <p id="documents-status" class="muted" role="status" aria-live="polite"></p>
-      <ul id="document-list" class="document-list"></ul>
-      <div id="document-preview" class="document-preview" hidden></div>
-    </section>
-  </main>
-  <footer class="site-footer">CLEON Oil &amp; Gas Ltd · Flexible energy. Reliable service.</footer>
-</body>
-
-</html>
-
-
-
-
-
-
+<header class="site-header"><a class="brand" href="index.html" aria-label="CLEON home"><img class="brand-logo" src="cleon-logo-for-dark-backgrounds.png" alt="CLEON Oil &amp; Gas"></a><p class="sidebar-caption">STATION OPERATIONS</p><nav aria-label="Station operations">
+<a href="dashboard.html" data-page-link="dashboard">Dashboard</a><a href="tank-dip.html" data-page-link="tank-dip">Tank Management</a><a href="pump-session.html" data-page-link="pump-session">Pump Management</a><a href="profile.html" data-page-link="profile">Attendants</a><a href="pump-session.html" data-page-link="pump-session">Pump Sessions</a><a href="fuel-receipt.html" data-page-link="fuel-receipt">Fuel Receipts</a><a href="reports.html" data-page-link="reports" aria-current="page">Reports Centre</a><a href="account-activity.html" data-page-link="account-activity">Accounts &amp; Balances</a><a href="expenses.html" data-page-link="expenses">Expenses</a><a href="profile.html" data-page-link="profile">Settings</a><button class="text-button" type="button" data-sign-out>Sign out</button></nav></header>
+<main class="wrap app-main" id="app-main"><div class="app-heading report-heading"><div><h1>Reports Centre</h1><p>Operational, stock and reconciliation reports</p></div><div class="app-actions"><a class="button secondary" href="index.html">Open Website</a><span id="page-status" class="sync-note" role="status" aria-live="polite"></span></div></div>
+<section class="app-toolbar"><label>From <input id="report-from" type="date" readonly></label><label>To <input id="report-to" type="date" readonly></label><label>Tax % <input value="0" readonly></label><button class="button" type="button" data-refresh>Refresh</button><div class="export-actions" id="report-exports" hidden><button class="button secondary" type="button" data-export="xlsx">Export Excel</button><button class="button" type="button" data-export="pdf">Export PDF</button><button class="button secondary" type="button" data-export="csv">Export CSV</button></div></section>
+<section class="email-settings-row"><div><h2>Product-finished report email</h2><p>Sender <strong id="report-email-sender">Configured in desktop app</strong>　Recipient <strong id="report-email-recipient">Configured in desktop app</strong></p></div><span id="report-email-status">Email settings are managed in the desktop Reports Centre.</span></section>
+<p id="reports-period" class="sync-note">Loading published reports…</p><section id="report-summary" class="report-summary-grid" aria-label="Report summary"></section>
+<section class="app-card chart-card"><h2>Profit &amp; Loss Breakdown &amp; Tank Variance (NGN)</h2><div id="report-chart" class="report-chart" aria-label="Profit and loss breakdown chart"></div></section>
+<section class="inventory-note"><h2>Inventory &amp; Variance Analysis</h2><p id="inventory-reference">Published stock, baseline, and variance figures from the desktop app.</p></section>
+<section class="app-card report-table-card"><div class="report-controls"><label>Report <select id="report-select"><option value="">Summary</option></select></label></div><nav id="report-tabs" class="report-tabs" aria-label="Reports Centre tabs"></nav><div class="table-wrap"><table><thead id="report-head"></thead><tbody id="report-rows"><tr><td>Loading…</td></tr></tbody></table></div></section>
+<section class="app-card document-card" id="published-documents"><h2>Documents</h2><p class="muted">Preview published PDFs and images.</p><p id="documents-status" class="muted" role="status" aria-live="polite"></p><ul id="document-list" class="document-list"></ul><div id="document-preview" class="document-preview" hidden></div></section><footer class="app-footer">CLEON Oil &amp; Gas · Published report snapshot</footer></main></body></html>
 
