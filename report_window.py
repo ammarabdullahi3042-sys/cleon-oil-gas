@@ -487,6 +487,23 @@ class ReportWindow(ctk.CTkFrame):
         if start > end:
             raise ValueError(
                 "The start date must be on or before the end date.")
+        with sqlite3.connect(DATABASE, timeout=10) as conn:
+            has_sales = conn.execute(
+                "SELECT 1 FROM pump_sessions WHERE date(session_date) BETWEEN date(?) AND date(?) LIMIT 1",
+                (start.isoformat(), end.isoformat()),
+            ).fetchone()
+            if not has_sales:
+                last_session = conn.execute(
+                    "SELECT MAX(date(session_date)) FROM pump_sessions WHERE date(session_date)<=date(?)",
+                    (end.isoformat(),),
+                ).fetchone()[0]
+                if last_session:
+                    fallback = date.fromisoformat(last_session)
+                    start = end = fallback
+                    self.from_date.delete(0, "end")
+                    self.from_date.insert(0, format_display_date(last_session))
+                    self.to_date.delete(0, "end")
+                    self.to_date.insert(0, format_display_date(last_session))
         return start.isoformat(), end.isoformat()
 
     @staticmethod

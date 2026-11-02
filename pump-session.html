@@ -6,7 +6,7 @@
   <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
   <title>Pump session entry | CLEON Oil &amp; Gas</title>
   <link rel="stylesheet" href="portal.css?v=127">
-  <script src="portal.js?v=3" defer></script>
+  <script src="portal.js?v=4" defer></script>
 </head>
 <body data-portal-page="pump-session">
   <header class="site-header">
@@ -26,10 +26,11 @@
     <div class="page-heading"><div><p class="eyebrow">Staff operations</p><h1>Pump session entry</h1><p class="muted">Submit meter readings and shift reconciliation for desktop processing.</p></div></div>
     <p id="page-status" class="status" role="status" aria-live="polite"></p>
     <section class="panel"><form id="station-entry-form" class="form" data-entry-type="pump_session">
-      <label>Pump number<input name="pump_number" required maxlength="40" placeholder="Pump number"></label>
-      <label>Attendant<input name="attendant_name" required maxlength="120" placeholder="Attendant name"></label>
+      <label>Pump / open product run<select id="pump-select" name="pump_number" required><option value="">Loading pumps…</option></select></label>
+      <label>Product<input id="pump-product" readonly aria-readonly="true" placeholder="Selected pump product"></label>
+      <label>Attendant<select id="attendant-select" name="attendant_name" required><option value="">Loading attendants…</option></select></label>
       <label>Session date<input name="session_date" type="date" required></label>
-      <label>Opening meter (L)<input name="opening_meter" type="number" min="0" step="0.01" required></label>
+      <label>Opening meter (L) · automatic<input id="opening-meter" name="opening_meter" type="number" min="0" step="0.01" readonly required></label>
       <label>Closing meter (L)<input name="closing_meter" type="number" min="0" step="0.01" required></label>
       <label>RTT returned (L)<input name="rtt_litres" type="number" min="0" step="0.01" value="0"></label>
       <label>Cash received (NGN)<input name="cash_collected" type="number" min="0" step="0.01" value="0"></label>
@@ -43,6 +44,7 @@
   <footer class="site-footer">Entries are queued securely and require desktop processing before station records change.</footer>
 </body>
 </html>
+
 
 
 

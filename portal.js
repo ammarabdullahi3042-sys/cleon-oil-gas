@@ -208,8 +208,15 @@
       ["Expected Sales", metrics.expected_sales],
     ].forEach(([label, value]) => addKpi(kpis, label, value));
 
+    const shownDate = metrics.records_date || dashboard.data.date || "—";
+    const selectedDate = dashboard.data.date || "—";
+    const dateNote = metrics.has_sales_records === false
+      ? `No sales records on or before ${selectedDate}.`
+      : shownDate < selectedDate
+        ? `No sales on ${selectedDate}; showing the latest session from ${shownDate}.`
+        : `Showing session values for ${shownDate}.`;
     document.getElementById("dashboard-updated").textContent =
-      `Dashboard date: ${dashboard.data.date || "—"} · Updated ${dashboard.updated_at || "—"}.`;
+      `${dateNote} · Snapshot updated ${dashboard.updated_at || "—"}.`;
 
     const tankRows = (metrics.tank_levels || []).map(tank => [
       tank[0], tank[1], tank[3], tank[2], tank[4], tank[5], tank[8],
@@ -496,6 +503,11 @@
     });
 
     if (entryPages.includes(page)) {
+      if (page === "pump-session") {
+        const snapshots = await requestJson("/api/v1/snapshot");
+        const metrics = snapshots.dashboard?.data?.metrics || {};
+        fillPumpSessionOptions(metrics);
+      }
       await loadEntryHistory();
       document.querySelectorAll('input[type="date"]').forEach(input => {
         if (!input.value) input.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -518,6 +530,28 @@
     }
 
     setStatus("Latest published data loaded.");
+  }
+
+  function fillPumpSessionOptions(metrics) {
+    const pumpSelect = document.getElementById("pump-select");
+    const attendantSelect = document.getElementById("attendant-select");
+    if (!pumpSelect || !attendantSelect) return;
+    const pumps = metrics.pump_session_options || [];
+    pumpSelect.replaceChildren(new Option(pumps.length ? "Choose pump" : "No open product runs", ""));
+    pumps.forEach(item => pumpSelect.add(new Option(`${item.pump_number} · ${item.product}`, item.pump_number)));
+    attendantSelect.replaceChildren(new Option("Choose attendant", ""));
+    (metrics.attendant_options || []).forEach(name => attendantSelect.add(new Option(name, name)));
+    const product = document.getElementById("pump-product");
+    const opening = document.getElementById("opening-meter");
+    const refreshMeter = () => {
+      const selected = pumps.find(item => item.pump_number === pumpSelect.value);
+      product.value = selected?.product || "";
+      opening.value = selected?.opening_meter == null ? "" : Number(selected.opening_meter).toFixed(2);
+    };
+    pumpSelect.addEventListener("change", refreshMeter);
+    refreshMeter();
+    const submit = document.querySelector("#station-entry-form button[type=submit]");
+    if (submit) submit.disabled = pumps.length === 0 || !(metrics.attendant_options || []).length;
   }
 
   async function signOut() {

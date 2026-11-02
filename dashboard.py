@@ -37,6 +37,7 @@ from website_entry_processor import import_station_entry
 from short_reconciliation import adjusted_short_over_total
 from short_reconciliation import ensure_reconciliation_schema
 from price_management import ensure_price_schema
+from pump_runs import ensure_pump_run_schema, opening_meter_for_run
 
 
 from app_settings import get_active_database
@@ -304,6 +305,7 @@ class Dashboard(ctk.CTk):
                    "previous_sale_date": None, "previous_sale_litres": 0.0}
         with sqlite3.connect(DATABASE, timeout=10) as conn:
             ensure_reconciliation_schema(conn)
+            ensure_pump_run_schema(conn)
             latest_sales_date = conn.execute("""
                 SELECT MAX(date(session_date))
                 FROM pump_sessions
@@ -332,6 +334,24 @@ class Dashboard(ctk.CTk):
                 WHERE current.rank=1
                 ORDER BY UPPER(TRIM(current.product))
             """, (selected_date,)).fetchall()
+            metrics["attendant_options"] = [
+                row[0] for row in conn.execute(
+                    "SELECT name FROM attendants WHERE trim(name)<>'' ORDER BY name"
+                ).fetchall()
+            ]
+            pump_runs = conn.execute("""
+                SELECT p.id,p.pump_number,r.id,r.product
+                FROM pumps p JOIN pump_product_runs r ON r.pump_id=p.id
+                WHERE r.status='OPEN' ORDER BY p.pump_number,r.id DESC
+            """).fetchall()
+            metrics["pump_session_options"] = [
+                {
+                    "pump_number": pump_number,
+                    "product": product,
+                    "opening_meter": opening_meter_for_run(conn, pump_id, run_id),
+                }
+                for pump_id, pump_number, run_id, product in pump_runs
+            ]
             metrics["previous_sale_date"] = conn.execute("""
                 SELECT MAX(date(session_date))
                 FROM pump_sessions
