@@ -466,6 +466,17 @@ th {
 @media(min-width:1050px){main.wrap:has(#station-entry-form){display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:14px;align-items:start}main.wrap:has(#station-entry-form)>.page-heading,main.wrap:has(#station-entry-form)>#page-status{grid-column:1/-1}main.wrap:has(#station-entry-form)>section.panel:has(#station-entry-form){grid-column:1;grid-row:3}main.wrap:has(#station-entry-form)>section.panel:has(#entry-history-rows){grid-column:2;grid-row:3}main.wrap:has(#station-entry-form) .form{grid-template-columns:1fr}main.wrap:has(#station-entry-form) .form button,main.wrap:has(#station-entry-form) .form .status{grid-column:1}}
 @media(max-width:600px){.report-chart{grid-template-columns:1fr minmax(70px,1fr);gap:8px}.report-chart-bar{grid-column:1 / -1;grid-row:auto}.report-chart strong{justify-self:end}}
 
+/* Shared shell aligned with the CLEON desktop app palette and sidebar. */
+:root{--bg:#0B1018;--panel:#141E2D;--surface:#182436;--text:#F3F6FA;--muted:#A8B5C7;--gold:#EC7624;--ember:#EC7624;--line:#2A3749;--accent:#EC7624;--on-gold:#10182A}
+body{font-family:"Segoe UI",Arial,sans-serif}
+h1,h2,.brand{font-family:"Segoe UI",Arial,sans-serif}
+.site-header{background:#10182A;border:0;border-right:1px solid #2A3749}
+.brand{color:#F3F6FA}
+.brand span{color:#A8B5C7}
+.panel,.kpi{border-radius:14px;background:#141E2D;border-color:#2A3749;box-shadow:none}
+@media(min-width:1000px){.site-header{position:fixed;z-index:20;inset:0 auto 0 0;width:250px;min-height:100vh;align-items:stretch;justify-content:flex-start;flex-direction:column;padding:24px 16px;overflow-y:auto}.site-header nav{align-items:stretch;flex-direction:column;gap:5px;margin-top:28px}.site-header nav a,.site-header .text-button{display:block;padding:11px 12px;border-radius:8px;text-align:left}.site-header nav a[aria-current="page"]{background:#202C3E;color:#F3F6FA;border-left:3px solid #EC7624}.wrap{width:calc(100% - 290px);max-width:none;margin:28px 20px 48px 270px}.site-footer{margin-left:250px}}
+@media(max-width:999px){.site-header{background:#10182A}.wrap{margin-top:24px}}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
