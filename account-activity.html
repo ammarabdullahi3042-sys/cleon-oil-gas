@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cleon-api-url" content=""><title>Account activity entry | CLEON Oil &amp; Gas</title>
+  <link rel="stylesheet" href="portal.css?v=124"><script src="portal.js?v=2" defer></script>
+</head>
+<body data-portal-page="account-activity">
+  <header class="site-header"><a class="brand" href="index.html">CLEON <span>OIL &amp; GAS</span></a><nav aria-label="Staff navigation">
+    <a href="dashboard.html" data-page-link="dashboard">Dashboard</a><a href="reports.html" data-page-link="reports">Reports</a>
+    <a href="pump-session.html" data-page-link="pump-session">Pump session</a><a href="fuel-receipt.html" data-page-link="fuel-receipt">Fuel receipt</a>
+    <a href="account-activity.html" data-page-link="account-activity" aria-current="page">Account activity</a><a href="tank-dip.html" data-page-link="tank-dip">Tank dip</a>
+    <button class="text-button" type="button" data-sign-out>Sign out</button></nav></header>
+  <main class="wrap"><div class="page-heading"><div><p class="eyebrow">Staff operations</p><h1>Account activity</h1><p class="muted">Record a cash, POS, bank, expense or fuel payment movement.</p></div></div>
+    <p id="page-status" class="status" role="status" aria-live="polite"></p>
+    <section class="panel"><form id="station-entry-form" class="form" data-entry-type="account_activity">
+      <label>Activity type<select name="transaction_type" required><option>Account Receipt</option><option>Cash Count</option><option>Cash Expense</option><option>POS Transaction</option><option>Account Expense</option><option>Product Payment</option><option>Bank Deposit</option><option>Account Payment / Amount Sent</option><option>Account Transfer</option><option>Opening Balance</option></select></label>
+      <label>Transaction date<input name="transaction_date" type="date" required></label>
+      <label>Amount (NGN)<input name="amount" type="number" min="0" step="0.01" required></label>
+      <label>Account / source<input name="account" required maxlength="120" placeholder="Cash, POS, or bank account"></label>
+      <label>Destination account<input name="target_account" maxlength="120" placeholder="For transfers/deposits"></label>
+      <label>Fuel receipt ID<input name="receipt_id" type="number" min="1" step="1" placeholder="Required for product payment"></label>
+      <label>Reference / narration<input name="reference" required maxlength="240"></label>
+      <button class="button" type="submit">Submit account activity</button><p id="entry-form-status" class="status" role="status" aria-live="polite"></p>
+    </form></section>
+    <section class="panel"><div class="page-heading"><h2>My recent submissions</h2><button class="button secondary" type="button" data-entry-refresh>Refresh entries</button></div><div class="table-wrap"><table><thead><tr><th>Type</th><th>Submitted</th><th>Status</th><th>Reference</th><th>Result</th></tr></thead><tbody id="entry-history-rows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></section>
+  </main><footer class="site-footer">Entries are queued securely and require desktop processing before station records change.</footer>
+</body></html>

@@ -1472,7 +1472,7 @@
             litre measured, every site kept safe and every report clear. Our pilot station is live in Kafanchan, Kaduna
             State.</p>
           <div class="cta"><a class="btn" href="#contact">Talk to our team</a><a class="btn ghost" href="#models">See
-              how we work</a><a class="btn ghost" href="#station-portal">Member portal</a></div>
+              how we work</a><a class="btn ghost" href="login.html">Staff and member sign in</a></div>
         </div>
         <div class="gauges" aria-label="Example of the station dashboard">
           <h3>Station dashboard</h3><small>Illustration with example figures</small>
@@ -1507,11 +1507,11 @@
     <section class="alt" id="station-portal">
       <div class="wrap">
         <div class="sec-head">
-          <h2>Member Dashboard and Report Centre</h2>
-          <p>Sign in with your CLEON member account to view the same daily figures and reports shown in the app.</p>
+          <h2>Staff and member portal</h2>
+          <p>Sign in with the account assigned to you. Dashboard, reports, and station entry open as separate pages according to your role.</p>
         </div>
         <form class="portal-login" id="portal-login">
-          <label for="portal-email">Member email</label>
+          <label for="portal-email">Assigned account email</label>
           <input id="portal-email" type="email" autocomplete="username" required>
           <label for="portal-password">Password</label>
           <input id="portal-password" type="password" autocomplete="current-password" required>
@@ -2400,6 +2400,11 @@
         accessToken = token;
         const profile = await fetchJson(`${apiBase}/api/v1/me`);
         memberRole = profile.role || "";
+        if (saveSession) sessionStorage.setItem(storageKey, token);
+        const destination = memberRole === "member" ? "reports.html"
+          : memberRole === "staff" ? "pump-session.html" : "dashboard.html";
+        window.location.replace(destination);
+        return;
         const entryTab = document.getElementById("portal-entry-tab");
         entryTab.hidden = !["staff", "admin", "super_admin"].includes(memberRole);
         if (!entryTab.hidden) {

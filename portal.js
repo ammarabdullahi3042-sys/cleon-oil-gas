@@ -16,11 +16,13 @@
   let currentMember = null;
   let previewObjectUrl = null;
 
+  const entryPages = ["pump-session", "fuel-receipt", "account-activity", "tank-dip"];
   const rolePages = {
-    super_admin: new Set(["dashboard", "reports", "profile"]),
-    admin: new Set(["dashboard", "reports"]),
+    super_admin: new Set(["dashboard", "reports", "profile", "pump-session", "fuel-receipt", "account-activity", "tank-dip"]),
+    admin: new Set(["dashboard", "reports", "pump-session", "fuel-receipt", "account-activity", "tank-dip"]),
     manager: new Set(["dashboard", "reports"]),
     member: new Set(["reports", "profile"]),
+    staff: new Set(["pump-session", "fuel-receipt", "account-activity", "tank-dip"]),
   };
 
   function setStatus(message, isError = false) {
@@ -359,6 +361,72 @@
     );
   }
 
+  function renderEntryHistory(entries) {
+    const body = document.getElementById("entry-history-rows");
+    if (!body) return;
+    body.replaceChildren();
+    if (!entries.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 5;
+      cell.textContent = "No submissions yet.";
+      row.appendChild(cell);
+      body.appendChild(row);
+      return;
+    }
+    entries.forEach(entry => {
+      const row = document.createElement("tr");
+      [entry.entry_type.replaceAll("_", " "), new Date(entry.created_at).toLocaleString(), entry.status,
+        entry.entry_id.slice(0, 8), entry.processing_note || "—"].forEach((value, index) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        if (index === 2) cell.className = `entry-status ${entry.status}`;
+        if (index === 3) cell.title = entry.entry_id;
+        row.appendChild(cell);
+      });
+      body.appendChild(row);
+    });
+  }
+
+  async function loadEntryHistory() {
+    const result = await requestJson("/api/v1/entries");
+    renderEntryHistory(result.entries || []);
+  }
+
+  async function submitStationEntry(form) {
+    const submit = form.querySelector('button[type="submit"]');
+    const message = document.getElementById("entry-form-status");
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const numericFields = new Set([
+      "opening_meter", "closing_meter", "opening_dip", "closing_dip", "rtt_litres",
+      "cash_collected", "pos_amount", "expenses", "invoice_quantity", "actual_quantity",
+      "cost_per_litre", "amount",
+    ]);
+    for (const [key, value] of Object.entries(payload)) {
+      if (numericFields.has(key)) payload[key] = value === "" ? 0 : Number(value);
+    }
+    submit.disabled = true;
+    message.textContent = "Submitting securely…";
+    message.classList.remove("error");
+    try {
+      const result = await requestJson("/api/v1/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entry_type: form.dataset.entryType, payload }),
+      });
+      message.textContent = `Saved to the station queue · reference ${result.entry_id.slice(0, 8)}. The desktop app must process it before local records change.`;
+      form.reset();
+      const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      form.querySelectorAll('input[type="date"]').forEach(input => { input.value = today; });
+      await loadEntryHistory();
+    } catch (error) {
+      message.textContent = error.message;
+      message.classList.add("error");
+    } finally {
+      submit.disabled = false;
+    }
+  }
+
   async function loadPageData() {
     requireApi();
     if (!token) {
@@ -368,8 +436,21 @@
 
     currentMember = await requestJson("/api/v1/me");
     if (!rolePages[currentMember.role]?.has(page)) {
-      const defaultPage = currentMember.role === "member" ? "reports.html" : "dashboard.html";
+      const defaultPage = currentMember.role === "member" ? "reports.html" : currentMember.role === "staff" ? "pump-session.html" : "dashboard.html";
       window.location.replace(defaultPage);
+      return;
+    }
+
+    document.querySelectorAll("[data-page-link]").forEach(link => {
+      link.hidden = !rolePages[currentMember.role]?.has(link.dataset.pageLink);
+    });
+
+    if (entryPages.includes(page)) {
+      await loadEntryHistory();
+      document.querySelectorAll('input[type="date"]').forEach(input => {
+        if (!input.value) input.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      });
+      setStatus("Station entry access verified for this account.");
       return;
     }
 
@@ -385,10 +466,6 @@
       document.getElementById("profile-email").textContent = currentMember.email;
       document.getElementById("profile-expiry").textContent = new Date(currentMember.expires_at).toLocaleString();
     }
-
-    document.querySelectorAll("[data-page-link]").forEach(link => {
-      link.hidden = !rolePages[currentMember.role]?.has(link.dataset.pageLink);
-    });
 
     setStatus("Latest published data loaded.");
   }
@@ -484,7 +561,8 @@
         sessionStorage.setItem(emailKey, result.email);
         sessionStorage.setItem(expiryKey, result.expires_at || "");
 
-        window.location.assign(result.role === "member" ? "reports.html" : "dashboard.html");
+        const destination = result.role === "member" ? "reports.html" : result.role === "staff" ? "pump-session.html" : "dashboard.html";
+        window.location.assign(destination);
       } catch (error) {
         setStatus(error.message, true);
       }
@@ -514,6 +592,16 @@
         button.addEventListener("click", () => {
           exportReport(button.dataset.export).catch(error => setStatus(error.message, true));
         });
+      });
+    }
+
+    if (entryPages.includes(page)) {
+      document.getElementById("station-entry-form").addEventListener("submit", event => {
+        event.preventDefault();
+        submitStationEntry(event.currentTarget);
+      });
+      document.querySelector("[data-entry-refresh]").addEventListener("click", () => {
+        loadEntryHistory().catch(error => setStatus(error.message, true));
       });
     }
 

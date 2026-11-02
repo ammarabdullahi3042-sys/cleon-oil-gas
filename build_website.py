@@ -9,8 +9,18 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
-SOURCE = ROOT / "website" / "index.html"
-OUTPUT = ROOT / "website-build" / "index.html"
+OUTPUT = ROOT / "website-build"
+PAGES = (
+    "index.html",
+    "login.html",
+    "dashboard.html",
+    "reports.html",
+    "profile.html",
+    "pump-session.html",
+    "fuel-receipt.html",
+    "account-activity.html",
+    "tank-dip.html",
+)
 META_PATTERN = re.compile(
     r'(<meta\s+name=["\']cleon-api-url["\']\s+content=["\'])'
     r'[^"\']*(["\'])',
@@ -36,11 +46,11 @@ def main():
                 "the /functions/v1/cleon-portal endpoint, without a query or fragment."
             )
 
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    pages = sorted(SOURCE.parent.glob("*.html"))
-    if not pages:
-        raise FileNotFoundError(f"No website HTML pages found in {SOURCE.parent}.")
-    for source_path in pages:
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    for page_name in PAGES:
+        source_path = ROOT / page_name
+        if not source_path.is_file():
+            raise FileNotFoundError(f"Website page is missing: {source_path}.")
         source = source_path.read_text(encoding="utf-8")
         built, replacements = META_PATTERN.subn(
             lambda match: (
@@ -52,11 +62,11 @@ def main():
             raise ValueError(
                 f"Expected at most one cleon-api-url meta tag in {source_path.name}."
             )
-        (OUTPUT.parent / source_path.name).write_text(built, encoding="utf-8")
+        (OUTPUT / source_path.name).write_text(built, encoding="utf-8")
     for asset in ("portal.css", "portal.js"):
-        shutil.copyfile(SOURCE.parent / asset, OUTPUT.parent / asset)
+        shutil.copyfile(ROOT / asset, OUTPUT / asset)
     print(
-        f"Built {len(pages)} website page(s); API URL "
+        f"Built {len(PAGES)} website page(s); API URL "
         f"{'configured' if api_url else 'not configured'}."
     )
 

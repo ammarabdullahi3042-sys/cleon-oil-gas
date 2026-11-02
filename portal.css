@@ -2,7 +2,7 @@ body {
   background: var(--bg);
 }
 
-git add .:root {
+:root {
   color-scheme: dark;
   --bg: #0e131c;
   --panel: #192433;
@@ -158,6 +158,8 @@ nav a[aria-current="page"] {
 }
 
 .form input,
+.form select,
+.form textarea,
 .report-controls select {
   min-height: 46px;
   width: 100%;
@@ -182,6 +184,20 @@ nav a[aria-current="page"] {
 .form .button {
   margin-top: 8px;
 }
+
+#station-entry-form {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  align-items: end;
+}
+
+#station-entry-form > button,
+#station-entry-form > .status {
+  grid-column: 1 / -1;
+}
+
+.entry-status.accepted { color: #22c55e; font-weight: 700; }
+.entry-status.rejected { color: #f87171; font-weight: 700; }
+.entry-status.pending { color: #facc15; font-weight: 700; }
 
 .button.secondary {
   background: transparent;
