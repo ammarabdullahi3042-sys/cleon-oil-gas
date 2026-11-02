@@ -16,13 +16,13 @@
   let currentMember = null;
   let previewObjectUrl = null;
 
-  const entryPages = ["pump-session", "fuel-receipt", "account-activity", "tank-dip"];
+  const entryPages = ["pump-session", "fuel-receipt", "account-activity", "expenses", "tank-dip"];
   const rolePages = {
-    super_admin: new Set(["dashboard", "reports", "profile", "pump-session", "fuel-receipt", "account-activity", "tank-dip"]),
-    admin: new Set(["dashboard", "reports", "pump-session", "fuel-receipt", "account-activity", "tank-dip"]),
+    super_admin: new Set(["dashboard", "reports", "profile", "pump-session", "fuel-receipt", "account-activity", "expenses", "tank-dip"]),
+    admin: new Set(["dashboard", "reports", "pump-session", "fuel-receipt", "account-activity", "expenses", "tank-dip"]),
     manager: new Set(["dashboard", "reports"]),
     member: new Set(["reports", "profile"]),
-    staff: new Set(["pump-session", "fuel-receipt", "account-activity", "tank-dip"]),
+    staff: new Set(["pump-session", "fuel-receipt", "account-activity", "expenses", "tank-dip"]),
   };
 
   function setStatus(message, isError = false) {

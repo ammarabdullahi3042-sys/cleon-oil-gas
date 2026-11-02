@@ -19,6 +19,7 @@ PAGES = (
     "pump-session.html",
     "fuel-receipt.html",
     "account-activity.html",
+    "expenses.html",
     "tank-dip.html",
 )
 META_PATTERN = re.compile(
