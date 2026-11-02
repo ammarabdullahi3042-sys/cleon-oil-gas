@@ -9,7 +9,8 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
-OUTPUT = ROOT / "website-build"
+OUTPUT = ROOT
+DEFAULT_API_URL = "https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal"
 PAGES = (
     "index.html",
     "login.html",
@@ -20,6 +21,7 @@ PAGES = (
     "fuel-receipt.html",
     "account-activity.html",
     "expenses.html",
+    "registration-requests.html",
     "tank-dip.html",
 )
 META_PATTERN = re.compile(
@@ -30,7 +32,10 @@ META_PATTERN = re.compile(
 
 
 def main():
-    api_url = os.environ.get("CLEON_WEBSITE_API_URL", "").strip().rstrip("/")
+    api_url = (
+        os.environ.get("CLEON_WEBSITE_API_URL", DEFAULT_API_URL).strip().rstrip("/")
+        or DEFAULT_API_URL
+    )
     if api_url:
         parsed = urlparse(api_url)
         if (
@@ -65,7 +70,10 @@ def main():
             )
         (OUTPUT / source_path.name).write_text(built, encoding="utf-8")
     for asset in ("portal.css", "portal.js"):
-        shutil.copyfile(ROOT / asset, OUTPUT / asset)
+        source_asset = ROOT / asset
+        output_asset = OUTPUT / asset
+        if source_asset.resolve() != output_asset.resolve():
+            shutil.copyfile(source_asset, output_asset)
     print(
         f"Built {len(PAGES)} website page(s); API URL "
         f"{'configured' if api_url else 'not configured'}."
