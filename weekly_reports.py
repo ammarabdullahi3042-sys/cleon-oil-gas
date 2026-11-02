@@ -23,9 +23,11 @@ def _valid_recipient(recipient):
 
 
 def _smtp_configuration(sender=None):
+    # Gmail is the configured CLEON sender, so make its standard SMTP endpoint
+    # the default. Deployments using another provider can override both values.
     required = {
-        key: os.environ.get(key, "").strip()
-        for key in MAIL_ENVIRONMENT_KEYS
+        "CLEON_SMTP_HOST": os.environ.get("CLEON_SMTP_HOST", "smtp.gmail.com").strip(),
+        "CLEON_SMTP_PORT": os.environ.get("CLEON_SMTP_PORT", "587").strip(),
     }
     missing = [key for key, value in required.items() if not value]
     if missing:
@@ -39,7 +41,8 @@ def _smtp_configuration(sender=None):
         raise ValueError("CLEON_SMTP_PORT must be a valid port number.") from error
     if not 1 <= port <= 65535:
         raise ValueError("CLEON_SMTP_PORT must be between 1 and 65535.")
-    username = os.environ.get("CLEON_SMTP_USERNAME", "").strip()
+    configured_username = os.environ.get("CLEON_SMTP_USERNAME", "").strip()
+    username = configured_username or configured_sender
     password = os.environ.get("CLEON_SMTP_PASSWORD", "")
     configured_sender = str(
         sender or os.environ.get("CLEON_SMTP_SENDER", "")
@@ -47,6 +50,12 @@ def _smtp_configuration(sender=None):
     if not _valid_recipient(configured_sender):
         raise ValueError(
             "Set a valid product-finished report sender address in Report Center settings."
+        )
+    gmail_host = required["CLEON_SMTP_HOST"].lower() in ("smtp.gmail.com", "smtp.googlemail.com")
+    if gmail_host and not password:
+        raise ValueError(
+            "Gmail SMTP is selected. Set CLEON_SMTP_PASSWORD to an App Password "
+            "for the sender account (Google 2-Step Verification must be enabled)."
         )
     if bool(username) != bool(password):
         raise ValueError(
