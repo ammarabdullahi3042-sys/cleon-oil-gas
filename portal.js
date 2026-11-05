@@ -661,6 +661,27 @@
     const stock = document.getElementById("receipt-stock");
     const openingFields = document.getElementById("receipt-pump-openings");
     const hiddenOpenings = document.getElementById("pump-openings");
+    const suggestions = metrics.fuel_receipt_suggestions || {};
+    const fillDatalist = (id, values) => {
+      const list = document.getElementById(id);
+      if (!list) return;
+      list.replaceChildren(...values.map(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        return option;
+      }));
+    };
+    fillDatalist("receipt-suppliers", suggestions.suppliers || []);
+    fillDatalist("receipt-vehicles", suggestions.vehicles || []);
+    const drivers = suggestions.drivers || [];
+    fillDatalist("receipt-drivers", drivers.map(driver => driver.name));
+    const driverInput = document.querySelector('[name="driver_name"]');
+    const phoneInput = document.querySelector('[name="driver_phone"]');
+    const fillDriverPhone = () => {
+      const driver = drivers.find(item => String(item.name).trim().toLowerCase() === driverInput.value.trim().toLowerCase());
+      if (driver && phoneInput) phoneInput.value = driver.phone || "";
+    };
+    driverInput?.addEventListener("change", fillDriverPhone);
     const refresh = () => {
       const tank = tanks.find(item => item.tank_number === tankSelect.value);
       product.value = tank?.product || "";
@@ -747,6 +768,22 @@
     const type = document.querySelector('[name="transaction_type"]');
     const receipt = document.querySelector('[name="receipt_id"]');
     const receiptField = document.getElementById("receipt-id-field");
+    const paymentHint = document.getElementById("payment-receipt-hint");
+    const paymentReceipts = metrics.product_payment_options || [];
+    if (receipt) {
+      receipt.replaceChildren(new Option(paymentReceipts.length ? "Choose unpaid receipt" : "No unpaid receipts published", ""));
+      paymentReceipts.forEach(item => receipt.add(new Option(
+        `#${item.receipt_id} · ${item.product} · ${item.supplier || "Supplier not set"} · Due ₦${Number(item.amount_due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        item.receipt_id,
+      )));
+    }
+    const refreshPaymentHint = () => {
+      const selected = paymentReceipts.find(item => String(item.receipt_id) === receipt?.value);
+      if (!paymentHint) return;
+      paymentHint.textContent = selected
+        ? `${selected.supplier || "Supplier not set"} · ${selected.product} · outstanding ₦${Number(selected.amount_due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. Enter the amount being paid.`
+        : paymentReceipts.length ? "Select an unpaid receipt to see the outstanding balance." : "No unpaid receipts are available in the latest app snapshot.";
+    };
     const populate = (select, choices, placeholder) => {
       if (!select) return;
       select.replaceChildren(new Option(placeholder, ""));
@@ -770,8 +807,10 @@
       if (target) target.required = needsTarget;
       if (targetField) targetField.hidden = !needsTarget;
       if (receiptField) receiptField.hidden = !needsReceipt;
+      refreshPaymentHint();
     };
     type?.addEventListener("change", refresh);
+    receipt?.addEventListener("change", refreshPaymentHint);
     document.querySelector("#station-entry-form")?.addEventListener("reset", () => setTimeout(refresh, 0));
     refresh();
     const submit = document.querySelector("#station-entry-form button[type=submit]");

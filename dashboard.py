@@ -41,6 +41,7 @@ from pump_runs import (
     ensure_pump_run_schema, opening_meter_for_run, opening_meter_for_new_run,
 )
 from account import ensure_account_schema
+from supplier_records import ensure_supplier_schema, supplier_names
 
 
 from app_settings import get_active_database
@@ -439,6 +440,66 @@ class Dashboard(ctk.CTk):
                     "current_stock": float(stock or 0),
                     "pump_openings": pump_openings,
                 })
+            ensure_supplier_schema(conn)
+            metrics["fuel_receipt_suggestions"] = {
+                "suppliers": supplier_names(conn),
+                "vehicles": [row[0] for row in conn.execute("""
+                    SELECT vehicle_number FROM (
+                        SELECT TRIM(vehicle_number) AS vehicle_number,
+                               date(receipt_date) AS receipt_day,id,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY lower(trim(vehicle_number))
+                                   ORDER BY date(receipt_date) DESC,id DESC
+                               ) AS position
+                        FROM fuel_receipts
+                        WHERE TRIM(COALESCE(vehicle_number,''))<>''
+                    ) WHERE position=1
+                    ORDER BY receipt_day DESC,id DESC
+                """).fetchall()],
+                "drivers": [
+                    {"name": row[0], "phone": row[1]}
+                    for row in conn.execute("""
+                        SELECT driver_name,driver_phone FROM (
+                            SELECT TRIM(driver_name) AS driver_name,
+                                   COALESCE(driver_phone,'') AS driver_phone,
+                                   date(receipt_date) AS receipt_day,id,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY lower(trim(driver_name))
+                                       ORDER BY date(receipt_date) DESC,id DESC
+                                   ) AS position
+                            FROM fuel_receipts
+                            WHERE TRIM(COALESCE(driver_name,''))<>''
+                        ) WHERE position=1
+                        ORDER BY receipt_day DESC,id DESC
+                    """).fetchall()
+                ],
+            }
+            metrics["product_payment_options"] = [
+                {
+                    "receipt_id": receipt_id,
+                    "product": product,
+                    "supplier": supplier,
+                    "amount_due": max(
+                        float(cost or 0) + float(station_cost or 0) - float(paid or 0), 0
+                    ),
+                }
+                for receipt_id, product, supplier, cost, station_cost, paid in conn.execute("""
+                    SELECT fr.id,COALESCE(fr.product,'Fuel'),
+                           COALESCE(s.name,fr.supplier_name,''),
+                           COALESCE(fr.total_cost,0),
+                           COALESCE((SELECT SUM(rs.station_borne_cost)
+                                     FROM receipt_short_reconciliations rs
+                                     WHERE rs.receipt_id=fr.id),0),
+                           COALESCE(SUM(at.amount),0)
+                    FROM fuel_receipts fr
+                    LEFT JOIN suppliers s ON s.id=fr.supplier_id
+                    LEFT JOIN account_transactions at
+                      ON at.receipt_id=fr.id AND at.transaction_type='Product Payment'
+                    GROUP BY fr.id
+                    ORDER BY date(fr.receipt_date),fr.id
+                """).fetchall()
+                if float(cost or 0) + float(station_cost or 0) - float(paid or 0) > 0.005
+            ]
             metrics["previous_sale_date"] = conn.execute("""
                 SELECT MAX(date(session_date))
                 FROM pump_sessions
@@ -594,6 +655,7 @@ class Dashboard(ctk.CTk):
                 "selling_prices", "session_price_options", "attendant_options",
                 "pump_session_options", "pump_options", "tank_dip_options",
                 "account_options", "fuel_receipt_options",
+                "fuel_receipt_suggestions", "product_payment_options",
             ):
                 metrics[key] = float(value or 0)
         return metrics
