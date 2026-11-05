@@ -260,17 +260,17 @@
     document.getElementById("litres-comparison").textContent = prev ? `${current >= prev ? "▲" : "▼"} ${Math.abs((current - prev) / prev * 100).toFixed(1)}% vs previous sales day` : "No previous sales day";
   }
 
-  function renderProfitLossChart(chart, values) {
+  function renderProfitLossBreakdown(list, values) {
     const labels = [
       "Gross profit", "Expenses", "Attendant shorts", "Delivery shortage",
       "Net profit", "Tank dip variance less baseline cost",
     ];
-    chart.replaceChildren();
+    list.replaceChildren();
     if (!Array.isArray(values) || !values.length) {
-      const empty = document.createElement("p");
-      empty.className = "chart-empty";
-      empty.textContent = "No profit and loss chart data has been published for this period.";
-      chart.appendChild(empty);
+      const empty = document.createElement("li");
+      empty.className = "breakdown-empty";
+      empty.textContent = "No profit and loss values have been published for this period.";
+      list.appendChild(empty);
       return;
     }
 
@@ -279,29 +279,33 @@
     numericValues.forEach((value, index) => {
       if (!Number.isFinite(value)) return;
       const label = labels[index] || `Value ${index + 1}`;
-      const item = document.createElement("div");
-      item.className = `report-chart-item${value < 0 ? " negative" : ""}`;
+      const item = document.createElement("li");
+      item.className = `breakdown-item${value < 0 ? " negative" : ""}`;
       item.setAttribute("aria-label", `${label}: ${displayValue(value, "amount")}`);
 
-      const amount = document.createElement("strong");
-      amount.className = "report-chart-value";
-      amount.textContent = `${value < 0 ? "−" : ""}₦${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-      const bar = document.createElement("div");
-      bar.className = `report-chart-bar${value < 0 ? " negative" : ""}`;
-      const fill = document.createElement("i");
-      fill.style.height = `${Math.max(2, Math.abs(value) / maximum * 48)}%`;
-      bar.appendChild(fill);
+      const heading = document.createElement("div");
+      heading.className = "breakdown-heading";
       const title = document.createElement("span");
-      title.className = "report-chart-label";
+      title.className = "breakdown-label";
       title.textContent = label;
-      item.append(amount, bar, title);
-      chart.appendChild(item);
+      const amount = document.createElement("strong");
+      amount.className = "breakdown-value";
+      amount.textContent = `${value < 0 ? "−" : ""}₦${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+      heading.append(title, amount);
+      const track = document.createElement("div");
+      track.className = "breakdown-track";
+      track.setAttribute("aria-hidden", "true");
+      const fill = document.createElement("i");
+      fill.style.width = `${value === 0 ? 0 : Math.max(2, Math.abs(value) / maximum * 100)}%`;
+      track.appendChild(fill);
+      item.append(heading, track);
+      list.appendChild(item);
     });
-    if (!chart.children.length) {
-      const empty = document.createElement("p");
-      empty.className = "chart-empty";
-      empty.textContent = "Published chart data is unavailable for this period.";
-      chart.appendChild(empty);
+    if (!list.children.length) {
+      const empty = document.createElement("li");
+      empty.className = "breakdown-empty";
+      empty.textContent = "Published values are unavailable for this period.";
+      list.appendChild(empty);
     }
   }
 
@@ -321,7 +325,7 @@
     summary.replaceChildren();
     Object.entries(reportData.summary?.cards || {}).forEach(([label, value]) => addKpi(summary, label, value));
 
-    renderProfitLossChart(document.getElementById("report-chart"), reportData.summary?.chart);
+    renderProfitLossBreakdown(document.getElementById("report-breakdown-rows"), reportData.summary?.chart);
 
     const select = document.getElementById("report-select");
     const previous = select.value;
@@ -554,11 +558,13 @@
     });
 
     if (entryPages.includes(page)) {
+      const snapshots = await requestJson("/api/v1/snapshot");
+      const metrics = snapshots.dashboard?.data?.metrics || {};
       if (page === "pump-session") {
-        const snapshots = await requestJson("/api/v1/snapshot");
-        const metrics = snapshots.dashboard?.data?.metrics || {};
         fillPumpSessionOptions(metrics);
       }
+      if (page === "tank-dip") fillTankDipOptions(metrics);
+      if (page === "account-activity") fillAccountOptions(metrics);
       await loadEntryHistory();
       document.querySelectorAll('input[type="date"]').forEach(input => {
         if (!input.value) input.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -601,6 +607,55 @@
     refreshMeter();
     const submit = document.querySelector("#station-entry-form button[type=submit]");
     if (submit) submit.disabled = pumps.length === 0 || !(metrics.attendant_options || []).length;
+  }
+
+  function fillTankDipOptions(metrics) {
+    const tankSelect = document.getElementById("tank-select");
+    if (!tankSelect) return;
+    const tanks = metrics.tank_dip_options || [];
+    tankSelect.replaceChildren(new Option(tanks.length ? "Choose tank" : "No active tanks published", ""));
+    tanks.forEach(tank => tankSelect.add(new Option(`${tank.tank_number} · ${tank.product}`, tank.tank_number)));
+    const opening = document.getElementById("opening-dip");
+    const capacity = document.getElementById("tank-capacity");
+    const hint = document.getElementById("opening-dip-hint");
+    const refresh = () => {
+      const selected = tanks.find(tank => tank.tank_number === tankSelect.value);
+      capacity.value = selected?.capacity ? Number(selected.capacity).toLocaleString() : "";
+      if (selected?.opening_dip != null) {
+        opening.value = Number(selected.opening_dip).toFixed(2);
+        opening.readOnly = true;
+        hint.textContent = "Carried forward from the latest recorded dip on or before the published date.";
+      } else {
+        opening.value = "";
+        opening.readOnly = false;
+        hint.textContent = "No earlier dip is available; enter the measured opening dip.";
+      }
+    };
+    tankSelect.addEventListener("change", refresh);
+    refresh();
+    const submit = document.querySelector("#station-entry-form button[type=submit]");
+    if (submit) submit.disabled = tanks.length === 0;
+  }
+
+  function fillAccountOptions(metrics) {
+    const accounts = metrics.account_options || [];
+    [document.getElementById("source-account"), document.getElementById("target-account")].forEach(select => {
+      if (!select) return;
+      select.replaceChildren(new Option(select.id === "source-account" ? "Choose source account" : "Choose destination account", ""));
+      accounts.forEach(account => select.add(new Option(`${account.name} · ${account.type}`, account.name)));
+    });
+    const type = document.querySelector('[name="transaction_type"]');
+    const receipt = document.querySelector('[name="receipt_id"]');
+    const target = document.getElementById("target-account");
+    const refresh = () => {
+      const needsReceipt = type?.value === "Product Payment";
+      if (receipt) receipt.required = needsReceipt;
+      if (target) target.required = type?.value === "Account Transfer";
+    };
+    type?.addEventListener("change", refresh);
+    refresh();
+    const submit = document.querySelector("#station-entry-form button[type=submit]");
+    if (submit) submit.disabled = accounts.length === 0;
   }
 
   async function signOut() {

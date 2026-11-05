@@ -38,6 +38,7 @@ from short_reconciliation import adjusted_short_over_total
 from short_reconciliation import ensure_reconciliation_schema
 from price_management import ensure_price_schema
 from pump_runs import ensure_pump_run_schema, opening_meter_for_run
+from account import ensure_account_schema
 
 
 from app_settings import get_active_database
@@ -352,6 +353,31 @@ class Dashboard(ctk.CTk):
                 }
                 for pump_id, pump_number, run_id, product in pump_runs
             ]
+            metrics["tank_dip_options"] = [
+                {
+                    "tank_number": tank_number,
+                    "product": product,
+                    "capacity": float(capacity or 0),
+                    "opening_dip": previous_dip,
+                }
+                for tank_number, product, capacity, previous_dip in conn.execute("""
+                    SELECT t.tank_number,t.product,COALESCE(t.capacity,0),
+                           (SELECT d.closing_dip FROM tank_dips d
+                            WHERE d.tank_id=t.id AND date(d.dip_date)<=date(?)
+                            ORDER BY date(d.dip_date) DESC,d.id DESC LIMIT 1)
+                    FROM tanks t
+                    WHERE COALESCE(t.is_active,1)=1
+                    ORDER BY t.tank_number,t.id
+                """, (selected_date,)).fetchall()
+            ]
+            ensure_account_schema(conn)
+            metrics["account_options"] = [
+                {"name": name, "type": account_type}
+                for name, account_type in conn.execute("""
+                    SELECT account_name,account_type FROM accounts
+                    WHERE is_active=1 ORDER BY account_type,account_name COLLATE NOCASE
+                """).fetchall()
+            ]
             metrics["previous_sale_date"] = conn.execute("""
                 SELECT MAX(date(session_date))
                 FROM pump_sessions
@@ -504,7 +530,8 @@ class Dashboard(ctk.CTk):
             if key not in (
                 "low_stock_tanks", "records_date", "has_sales_records",
                 "tank_count", "tank_levels", "previous_sale_date",
-                "selling_prices",
+                "selling_prices", "attendant_options",
+                "pump_session_options", "tank_dip_options", "account_options",
             ):
                 metrics[key] = float(value or 0)
         return metrics
