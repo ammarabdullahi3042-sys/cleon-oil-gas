@@ -196,6 +196,17 @@ nav a[aria-current="page"] {
 #station-entry-form > .status {
   grid-column: 1 / -1;
 }
+.form-subsection {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(8, 16, 28, .38);
+}
+.form-subsection > p { grid-column: 1 / -1; margin: 0; }
 
 .entry-status.accepted { color: #22c55e; font-weight: 700; }
 .entry-status.rejected { color: #f87171; font-weight: 700; }

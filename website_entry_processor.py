@@ -72,10 +72,21 @@ def _import_pump_session(conn, payload):
     attendant = conn.execute("SELECT id FROM attendants WHERE lower(trim(name))=lower(trim(?))", (payload.get("attendant_name", ""),)).fetchone()
     if not attendant:
         raise ValueError("The selected attendant was not found in the station app.")
-    run = conn.execute("""
-        SELECT id,product FROM pump_product_runs
-        WHERE pump_id=? AND status='OPEN' ORDER BY id DESC LIMIT 1
-    """, (pump_id,)).fetchone()
+    selected_run = payload.get("run_id")
+    if selected_run not in (None, ""):
+        try:
+            selected_run = int(selected_run)
+        except (TypeError, ValueError):
+            raise ValueError("Select a valid open product run.")
+        run = conn.execute("""
+            SELECT id,product FROM pump_product_runs
+            WHERE pump_id=? AND id=? AND status='OPEN'
+        """, (pump_id, selected_run)).fetchone()
+    else:
+        run = conn.execute("""
+            SELECT id,product FROM pump_product_runs
+            WHERE pump_id=? AND status='OPEN' ORDER BY id DESC LIMIT 1
+        """, (pump_id,)).fetchone()
     if not run:
         raise ValueError("This pump has no open product run linked to a fuel receipt.")
     run_id, product = run

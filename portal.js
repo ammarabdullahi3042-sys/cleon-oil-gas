@@ -511,7 +511,7 @@
     const numericFields = new Set([
       "opening_meter", "closing_meter", "opening_dip", "closing_dip", "rtt_litres",
       "cash_collected", "pos_amount", "expenses", "invoice_quantity", "actual_quantity",
-      "cost_per_litre", "amount",
+      "cost_per_litre", "amount", "run_id",
     ]);
     for (const [key, value] of Object.entries(payload)) {
       if (numericFields.has(key)) payload[key] = value === "" ? 0 : Number(value);
@@ -565,6 +565,8 @@
       }
       if (page === "tank-dip") fillTankDipOptions(metrics);
       if (page === "account-activity") fillAccountOptions(metrics);
+      if (page === "expenses") fillExpenseAccountOptions(metrics);
+      if (page === "fuel-receipt") fillFuelReceiptOptions(metrics);
       await loadEntryHistory();
       document.querySelectorAll('input[type="date"]').forEach(input => {
         if (!input.value) input.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -589,24 +591,116 @@
 
   function fillPumpSessionOptions(metrics) {
     const pumpSelect = document.getElementById("pump-select");
+    const runSelect = document.getElementById("run-select");
     const attendantSelect = document.getElementById("attendant-select");
-    if (!pumpSelect || !attendantSelect) return;
-    const pumps = metrics.pump_session_options || [];
-    pumpSelect.replaceChildren(new Option(pumps.length ? "Choose pump" : "No open product runs", ""));
-    pumps.forEach(item => pumpSelect.add(new Option(`${item.pump_number} · ${item.product}`, item.pump_number)));
+    if (!pumpSelect || !runSelect || !attendantSelect) return;
+    const legacyRuns = metrics.pump_session_options || [];
+    const pumps = metrics.pump_options || [...new Set(legacyRuns.map(item => item.pump_number))]
+      .map(pump_number => ({ pump_number, runs: legacyRuns.filter(item => item.pump_number === pump_number) }));
+    pumpSelect.replaceChildren(new Option(pumps.length ? "Choose pump" : "No pumps published", ""));
+    pumps.forEach(item => pumpSelect.add(new Option(`Pump ${item.pump_number}`, item.pump_number)));
     attendantSelect.replaceChildren(new Option("Choose attendant", ""));
     (metrics.attendant_options || []).forEach(name => attendantSelect.add(new Option(name, name)));
     const product = document.getElementById("pump-product");
     const opening = document.getElementById("opening-meter");
-    const refreshMeter = () => {
-      const selected = pumps.find(item => item.pump_number === pumpSelect.value);
-      product.value = selected?.product || "";
-      opening.value = selected?.opening_meter == null ? "" : Number(selected.opening_meter).toFixed(2);
-    };
-    pumpSelect.addEventListener("change", refreshMeter);
-    refreshMeter();
+    const price = document.getElementById("session-price");
+    const hint = document.getElementById("pump-run-hint");
     const submit = document.querySelector("#station-entry-form button[type=submit]");
-    if (submit) submit.disabled = pumps.length === 0 || !(metrics.attendant_options || []).length;
+    const refreshRuns = () => {
+      const pump = pumps.find(item => String(item.pump_number) === pumpSelect.value);
+      const runs = pump?.runs || [];
+      runSelect.replaceChildren(new Option(runs.length ? "Choose open run" : "No open product runs", ""));
+      runs.forEach(run => runSelect.add(new Option(`Run ${run.run_id || ""} · ${run.product}`, run.run_id ?? run.pump_number)));
+      refreshMeter();
+    };
+    const refreshMeter = () => {
+      const pump = pumps.find(item => String(item.pump_number) === pumpSelect.value);
+      const selectedRun = pump?.runs?.find(run => String(run.run_id ?? run.pump_number) === runSelect.value);
+      product.value = selectedRun?.product || "";
+      opening.value = selectedRun?.opening_meter == null ? "" : Number(selectedRun.opening_meter).toFixed(2);
+      const sessionDate = document.querySelector('[name="session_date"]')?.value || "9999-12-31";
+      const matchingPrices = (metrics.session_price_options || []).filter(row =>
+        String(row.product).toUpperCase() === String(selectedRun?.product || "").toUpperCase() && row.effective_date <= sessionDate
+      );
+      const selectedPrice = matchingPrices[0]?.price_per_litre;
+      const sellingPrice = selectedPrice ?? (metrics.selling_prices || []).find(row => String(row[0]).toUpperCase() === String(selectedRun?.product || "").toUpperCase())?.[1];
+      price.value = sellingPrice == null ? "" : `₦${Number(sellingPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / L`;
+      hint.textContent = !pump
+        ? "Choose a pump to see its open product runs."
+        : runsFor(pump).length
+          ? "Choose the open run linked to this pump. Opening meter and selling price load automatically."
+          : `Pump ${pump.pump_number} has no open product run. Record a fuel receipt for its tank to start one.`;
+      if (submit) submit.disabled = !selectedRun || !(metrics.attendant_options || []).length;
+    };
+    const runsFor = pump => pump?.runs || [];
+    pumpSelect.addEventListener("change", refreshRuns);
+    runSelect.addEventListener("change", refreshMeter);
+    document.querySelector('[name="session_date"]')?.addEventListener("change", refreshMeter);
+    document.querySelector("#station-entry-form")?.addEventListener("reset", () => setTimeout(refreshRuns, 0));
+    refreshRuns();
+  }
+
+  function fillExpenseAccountOptions(metrics) {
+    const select = document.getElementById("expense-account");
+    if (!select) return;
+    const accounts = metrics.account_options || [];
+    select.replaceChildren(new Option(accounts.length ? "Choose account" : "No active accounts published", ""));
+    accounts.forEach(account => select.add(new Option(`${account.name} · ${account.type}`, account.name)));
+    const submit = document.querySelector("#station-entry-form button[type=submit]");
+    if (submit) submit.disabled = accounts.length === 0;
+  }
+
+  function fillFuelReceiptOptions(metrics) {
+    const tankSelect = document.getElementById("receipt-tank");
+    if (!tankSelect) return;
+    const tanks = metrics.fuel_receipt_options || [];
+    tankSelect.replaceChildren(new Option(tanks.length ? "Choose active tank" : "No active tanks published", ""));
+    tanks.forEach(tank => tankSelect.add(new Option(`${tank.tank_number} · ${tank.product}`, tank.tank_number)));
+    const product = document.getElementById("receipt-product");
+    const capacity = document.getElementById("receipt-capacity");
+    const stock = document.getElementById("receipt-stock");
+    const openingFields = document.getElementById("receipt-pump-openings");
+    const hiddenOpenings = document.getElementById("pump-openings");
+    const refresh = () => {
+      const tank = tanks.find(item => item.tank_number === tankSelect.value);
+      product.value = tank?.product || "";
+      capacity.value = tank ? Number(tank.capacity || 0).toLocaleString() : "";
+      stock.value = tank ? Number(tank.current_stock || 0).toLocaleString() : "";
+      openingFields.replaceChildren();
+      const meterInputs = [];
+      (tank?.pump_openings || []).forEach(pump => {
+        const label = document.createElement("label");
+        label.textContent = `Pump ${pump.pump_number} opening meter (L)`;
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.step = "0.01";
+        input.value = pump.opening_meter == null ? "" : Number(pump.opening_meter).toFixed(2);
+        input.required = pump.opening_meter == null;
+        input.dataset.pumpNumber = pump.pump_number;
+        input.addEventListener("input", syncOpeningMeters);
+        label.appendChild(input);
+        openingFields.appendChild(label);
+        meterInputs.push(input);
+      });
+      if (!meterInputs.length && tank) {
+        const note = document.createElement("p");
+        note.className = "muted";
+        note.textContent = "Connected pumps already have matching open runs; their opening meters carry forward automatically.";
+        openingFields.appendChild(note);
+      }
+      syncOpeningMeters();
+    };
+    function syncOpeningMeters() {
+      hiddenOpenings.value = [...openingFields.querySelectorAll("input[data-pump-number]")]
+        .filter(input => input.value !== "")
+        .map(input => `${input.dataset.pumpNumber}=${input.value}`).join(", ");
+    }
+    tankSelect.addEventListener("change", refresh);
+    document.querySelector("#station-entry-form")?.addEventListener("reset", () => setTimeout(refresh, 0));
+    refresh();
+    const submit = document.querySelector("#station-entry-form button[type=submit]");
+    if (submit) submit.disabled = tanks.length === 0;
   }
 
   function fillTankDipOptions(metrics) {
@@ -620,6 +714,13 @@
     const hint = document.getElementById("opening-dip-hint");
     const refresh = () => {
       const selected = tanks.find(tank => tank.tank_number === tankSelect.value);
+      if (!selected) {
+        capacity.value = "";
+        opening.value = "";
+        opening.readOnly = true;
+        hint.textContent = "Select a tank to load its opening reading.";
+        return;
+      }
       capacity.value = selected?.capacity ? Number(selected.capacity).toLocaleString() : "";
       if (selected?.opening_dip != null) {
         opening.value = Number(selected.opening_dip).toFixed(2);
@@ -632,6 +733,7 @@
       }
     };
     tankSelect.addEventListener("change", refresh);
+    document.querySelector("#station-entry-form")?.addEventListener("reset", () => setTimeout(refresh, 0));
     refresh();
     const submit = document.querySelector("#station-entry-form button[type=submit]");
     if (submit) submit.disabled = tanks.length === 0;
@@ -639,20 +741,38 @@
 
   function fillAccountOptions(metrics) {
     const accounts = metrics.account_options || [];
-    [document.getElementById("source-account"), document.getElementById("target-account")].forEach(select => {
-      if (!select) return;
-      select.replaceChildren(new Option(select.id === "source-account" ? "Choose source account" : "Choose destination account", ""));
-      accounts.forEach(account => select.add(new Option(`${account.name} · ${account.type}`, account.name)));
-    });
+    const source = document.getElementById("source-account");
+    const target = document.getElementById("target-account");
+    const targetField = document.getElementById("target-account-field");
     const type = document.querySelector('[name="transaction_type"]');
     const receipt = document.querySelector('[name="receipt_id"]');
-    const target = document.getElementById("target-account");
+    const receiptField = document.getElementById("receipt-id-field");
+    const populate = (select, choices, placeholder) => {
+      if (!select) return;
+      select.replaceChildren(new Option(placeholder, ""));
+      choices.forEach(account => select.add(new Option(`${account.name} · ${account.type}`, account.name)));
+    };
     const refresh = () => {
+      const cashTypes = ["Account Receipt", "Cash Count", "Cash Expense", "Bank Deposit"];
+      const sourceChoices = type?.value === "POS Transaction" ? accounts.filter(account => account.type === "POS")
+        : type?.value === "Account Expense" ? accounts.filter(account => ["POS", "BANK"].includes(account.type))
+          : cashTypes.includes(type?.value) ? accounts.filter(account => account.type === "CASH") : accounts;
+      const targetChoices = type?.value === "Bank Deposit" ? accounts.filter(account => account.type === "BANK") : accounts;
+      const previousSource = source?.value;
+      const previousTarget = target?.value;
+      populate(source, sourceChoices, "Choose source account");
+      populate(target, targetChoices, "Choose destination account");
+      if (previousSource && sourceChoices.some(account => account.name === previousSource)) source.value = previousSource;
+      if (previousTarget && targetChoices.some(account => account.name === previousTarget)) target.value = previousTarget;
       const needsReceipt = type?.value === "Product Payment";
       if (receipt) receipt.required = needsReceipt;
-      if (target) target.required = type?.value === "Account Transfer";
+      const needsTarget = ["Account Transfer", "Bank Deposit"].includes(type?.value);
+      if (target) target.required = needsTarget;
+      if (targetField) targetField.hidden = !needsTarget;
+      if (receiptField) receiptField.hidden = !needsReceipt;
     };
     type?.addEventListener("change", refresh);
+    document.querySelector("#station-entry-form")?.addEventListener("reset", () => setTimeout(refresh, 0));
     refresh();
     const submit = document.querySelector("#station-entry-form button[type=submit]");
     if (submit) submit.disabled = accounts.length === 0;

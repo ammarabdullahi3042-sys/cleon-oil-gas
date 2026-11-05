@@ -37,7 +37,9 @@ from website_entry_processor import import_station_entry
 from short_reconciliation import adjusted_short_over_total
 from short_reconciliation import ensure_reconciliation_schema
 from price_management import ensure_price_schema
-from pump_runs import ensure_pump_run_schema, opening_meter_for_run
+from pump_runs import (
+    ensure_pump_run_schema, opening_meter_for_run, opening_meter_for_new_run,
+)
 from account import ensure_account_schema
 
 
@@ -335,6 +337,14 @@ class Dashboard(ctk.CTk):
                 WHERE current.rank=1
                 ORDER BY UPPER(TRIM(current.product))
             """, (selected_date,)).fetchall()
+            metrics["session_price_options"] = [
+                {"product": product, "price_per_litre": float(price), "effective_date": effective_date}
+                for product, price, effective_date in conn.execute("""
+                    SELECT product,price_per_litre,effective_date FROM product_prices
+                    WHERE date(effective_date)<=date(?)
+                    ORDER BY UPPER(TRIM(product)),date(effective_date) DESC,id DESC
+                """, (selected_date,)).fetchall()
+            ]
             metrics["attendant_options"] = [
                 row[0] for row in conn.execute(
                     "SELECT name FROM attendants WHERE trim(name)<>'' ORDER BY name"
@@ -349,10 +359,32 @@ class Dashboard(ctk.CTk):
                 {
                     "pump_number": pump_number,
                     "product": product,
+                    "run_id": run_id,
                     "opening_meter": opening_meter_for_run(conn, pump_id, run_id),
                 }
                 for pump_id, pump_number, run_id, product in pump_runs
             ]
+            metrics["pump_options"] = []
+            for pump_id, pump_number in conn.execute(
+                "SELECT id,pump_number FROM pumps ORDER BY pump_number"
+            ).fetchall():
+                runs = conn.execute("""
+                    SELECT id,product FROM pump_product_runs
+                    WHERE pump_id=? AND status='OPEN' ORDER BY id DESC
+                """, (pump_id,)).fetchall()
+                metrics["pump_options"].append({
+                    "pump_number": pump_number,
+                    "runs": [
+                        {
+                            "run_id": run_id,
+                            "product": product,
+                            "opening_meter": opening_meter_for_run(
+                                conn, pump_id, run_id
+                            ),
+                        }
+                        for run_id, product in runs
+                    ],
+                })
             metrics["tank_dip_options"] = [
                 {
                     "tank_number": tank_number,
@@ -378,6 +410,35 @@ class Dashboard(ctk.CTk):
                     WHERE is_active=1 ORDER BY account_type,account_name COLLATE NOCASE
                 """).fetchall()
             ]
+            metrics["fuel_receipt_options"] = []
+            for tank_id, tank_number, product, capacity, stock in conn.execute("""
+                SELECT id,tank_number,product,COALESCE(capacity,0),
+                       COALESCE(current_stock,0)
+                FROM tanks WHERE COALESCE(is_active,1)=1
+                ORDER BY tank_number,id
+            """).fetchall():
+                pump_openings = []
+                for pump_id, pump_number in conn.execute(
+                    "SELECT id,pump_number FROM pumps WHERE tank_id=? ORDER BY pump_number",
+                    (tank_id,),
+                ).fetchall():
+                    active_run = conn.execute("""
+                        SELECT tank_id,product FROM pump_product_runs
+                        WHERE pump_id=? AND status='OPEN' ORDER BY id DESC LIMIT 1
+                    """, (pump_id,)).fetchone()
+                    if active_run and active_run[0] == tank_id and str(active_run[1]).casefold() == str(product).casefold():
+                        continue
+                    pump_openings.append({
+                        "pump_number": pump_number,
+                        "opening_meter": opening_meter_for_new_run(conn, pump_id),
+                    })
+                metrics["fuel_receipt_options"].append({
+                    "tank_number": tank_number,
+                    "product": product,
+                    "capacity": float(capacity or 0),
+                    "current_stock": float(stock or 0),
+                    "pump_openings": pump_openings,
+                })
             metrics["previous_sale_date"] = conn.execute("""
                 SELECT MAX(date(session_date))
                 FROM pump_sessions
@@ -530,8 +591,9 @@ class Dashboard(ctk.CTk):
             if key not in (
                 "low_stock_tanks", "records_date", "has_sales_records",
                 "tank_count", "tank_levels", "previous_sale_date",
-                "selling_prices", "attendant_options",
-                "pump_session_options", "tank_dip_options", "account_options",
+                "selling_prices", "session_price_options", "attendant_options",
+                "pump_session_options", "pump_options", "tank_dip_options",
+                "account_options", "fuel_receipt_options",
             ):
                 metrics[key] = float(value or 0)
         return metrics
