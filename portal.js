@@ -54,7 +54,12 @@
     const headers = new Headers(options.headers || {});
     headers.set("apikey", publishableKey);
     if (token) headers.set("Authorization", `Bearer ${token}`);
-    let response = await fetch(`${apiBase}${path}`, { ...options, headers });
+    let response;
+    try {
+      response = await fetch(`${apiBase}${path}`, { ...options, headers });
+    } catch (error) {
+      throw new Error("Could not connect to the CLEON website service. Check your connection and try again.");
+    }
 
     if (response.status === 401 && token && refreshToken &&
       !["/api/v1/login", "/api/v1/logout"].includes(path)) {
@@ -124,19 +129,30 @@
     amount.className = "kpi-value";
     amount.textContent = displayValue(value, label);
 
-    if (label.includes("Sales") || label.includes("Cash Collected") || label.includes("POS Collected")) {
+    const reportValueColors = {
+      "Net litres sold": "info",
+      "Litres received": "info",
+      "Cumulative tank dip variance": "success",
+      "Dip variance estimate (not profit)": "success",
+      "Sales value": "info",
+      "Gross profit": "success",
+      "Recorded expenses": "warning",
+      "Net profit": "success",
+      "Current stock": "danger",
+      "RTT returned": "info",
+      "RTT cost": "warning",
+      "Tank baseline cost (not profit)": "warning",
+      "True tank variance": "danger",
+    };
+    if (reportValueColors[label]) {
+      amount.classList.add(reportValueColors[label]);
+    } else if (label.includes("Sales") || label.includes("Cash Collected") || label.includes("POS Collected")) {
       amount.classList.add("success");
-    }
-
-    if (label.includes("Fuel Stock") || label.includes("RTT")) {
+    } else if (label.includes("Fuel Stock") || label.includes("RTT")) {
       amount.classList.add("info");
-    }
-
-    if (label.includes("Expenses")) {
+    } else if (label.includes("Expenses")) {
       amount.classList.add("warning");
-    }
-
-    if (label.includes("Short")) {
+    } else if (label.includes("Short")) {
       amount.classList.add("danger");
     }
 
@@ -217,8 +233,6 @@
         : `Showing session values for ${shownDate}.`;
     document.getElementById("dashboard-updated").textContent =
       `${dateNote} · Snapshot updated ${dashboard.updated_at || "—"}.`;
-    const viewDate = document.getElementById("view-date");
-    if (viewDate) viewDate.value = dashboard.data.date || "";
     const tankRows = metrics.tank_levels || [];
     const lowStock = metrics.low_stock_tanks || [];
     document.getElementById("stock-warning").textContent = lowStock.length
@@ -246,6 +260,51 @@
     document.getElementById("litres-comparison").textContent = prev ? `${current >= prev ? "▲" : "▼"} ${Math.abs((current - prev) / prev * 100).toFixed(1)}% vs previous sales day` : "No previous sales day";
   }
 
+  function renderProfitLossChart(chart, values) {
+    const labels = [
+      "Gross profit", "Expenses", "Attendant shorts", "Delivery shortage",
+      "Net profit", "Tank dip variance less baseline cost",
+    ];
+    chart.replaceChildren();
+    if (!Array.isArray(values) || !values.length) {
+      const empty = document.createElement("p");
+      empty.className = "chart-empty";
+      empty.textContent = "No profit and loss chart data has been published for this period.";
+      chart.appendChild(empty);
+      return;
+    }
+
+    const numericValues = values.map(Number);
+    const maximum = Math.max(1, ...numericValues.filter(Number.isFinite).map(Math.abs));
+    numericValues.forEach((value, index) => {
+      if (!Number.isFinite(value)) return;
+      const label = labels[index] || `Value ${index + 1}`;
+      const item = document.createElement("div");
+      item.className = `report-chart-item${value < 0 ? " negative" : ""}`;
+      item.setAttribute("aria-label", `${label}: ${displayValue(value, "amount")}`);
+
+      const amount = document.createElement("strong");
+      amount.className = "report-chart-value";
+      amount.textContent = `${value < 0 ? "−" : ""}₦${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+      const bar = document.createElement("div");
+      bar.className = `report-chart-bar${value < 0 ? " negative" : ""}`;
+      const fill = document.createElement("i");
+      fill.style.height = `${Math.max(2, Math.abs(value) / maximum * 48)}%`;
+      bar.appendChild(fill);
+      const title = document.createElement("span");
+      title.className = "report-chart-label";
+      title.textContent = label;
+      item.append(amount, bar, title);
+      chart.appendChild(item);
+    });
+    if (!chart.children.length) {
+      const empty = document.createElement("p");
+      empty.className = "chart-empty";
+      empty.textContent = "Published chart data is unavailable for this period.";
+      chart.appendChild(empty);
+    }
+  }
+
   function renderReports(snapshot) {
     if (!snapshot.reports) throw new Error("The desktop app has not published a Reports Centre snapshot yet.");
     const reportData = snapshot.reports.data;
@@ -258,26 +317,11 @@
     document.getElementById("report-email-sender").textContent = email.sender || "Set in desktop Reports Centre";
     document.getElementById("report-email-recipient").textContent = email.recipient || "Set in desktop Reports Centre";
     document.getElementById("report-email-status").textContent = email.enabled === false ? "Product-finished email is disabled." : "Product-finished email is enabled in the desktop app.";
-    document.getElementById("inventory-reference").textContent = reportData.summary?.inventory || "No inventory analysis published.";
-
     const summary = document.getElementById("report-summary");
     summary.replaceChildren();
     Object.entries(reportData.summary?.cards || {}).forEach(([label, value]) => addKpi(summary, label, value));
 
-    const chart = document.getElementById("report-chart");
-    chart.replaceChildren();
-    const chartValues = reportData.summary?.chart || [];
-    const chartLabels = ["Gross profit", "Expenses", "Attendant shorts", "Delivery shortage", "Net profit", "Dip variance less baseline cost"];
-    const max = Math.max(1, ...chartValues.map(value => Math.abs(Number(value) || 0)));
-    chartValues.forEach((raw, index) => {
-      const value = Number(raw || 0);
-      const item = document.createElement("div"); item.className = "report-chart-item";
-      const amount = document.createElement("strong"); amount.className = "report-chart-value"; amount.textContent = `${value < 0 ? "NGN -" : "NGN +"}${Math.abs(value).toLocaleString(undefined,{maximumFractionDigits:0})}`;
-      const bar = document.createElement("div"); bar.className = "report-chart-bar";
-      const fill = document.createElement("i"); fill.style.height = `${Math.max(2, Math.abs(value) / max * 100)}%`; bar.append(fill);
-      const label = document.createElement("span"); label.className = "report-chart-label"; label.textContent = chartLabels[index] || `Value ${index + 1}`;
-      item.append(amount, bar, label); chart.append(item);
-    });
+    renderProfitLossChart(document.getElementById("report-chart"), reportData.summary?.chart);
 
     const select = document.getElementById("report-select");
     const previous = select.value;
@@ -316,6 +360,8 @@
     const list = document.getElementById("document-list");
     const message = document.getElementById("documents-status");
     const preview = document.getElementById("document-preview");
+    message.classList.remove("error");
+    message.textContent = "Loading published documents…";
     const response = await requestJson("/api/v1/documents");
 
     list.replaceChildren();
@@ -400,9 +446,15 @@
   }
 
   function renderSelectedReport() {
-    const report = reports[document.getElementById("report-select").value];
+    const reportSelect = document.getElementById("report-select");
+    const report = reports[reportSelect.value];
+    const exports = document.getElementById("report-exports");
+    exports.hidden = (
+      !["admin", "super_admin"].includes(currentMember?.role) ||
+      !report
+    );
     document.querySelectorAll(".report-tab").forEach(tab => {
-      tab.setAttribute("aria-pressed", String(tab.textContent === (report ? document.getElementById("report-select").value : "Summary")));
+      tab.setAttribute("aria-pressed", String(tab.textContent === (report ? reportSelect.value : "Summary")));
     });
     if (!report) {
       renderTable(document.getElementById("report-head"), document.getElementById("report-rows"), [], []);
@@ -484,6 +536,7 @@
 
   async function loadPageData() {
     requireApi();
+    setStatus("Loading latest published data…");
     if (!token) {
       window.location.replace("login.html");
       return;
@@ -519,8 +572,6 @@
     if (page === "reports") {
       renderReports(snapshots);
       await renderDocuments();
-      const exports = document.getElementById("report-exports");
-      exports.hidden = !["admin", "super_admin"].includes(currentMember.role);
     }
     if (page === "profile") {
       document.getElementById("profile-email").textContent = currentMember.email;

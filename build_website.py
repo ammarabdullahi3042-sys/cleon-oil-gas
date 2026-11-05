@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
-OUTPUT = ROOT
+OUTPUT = ROOT / "website-build"
 DEFAULT_API_URL = "https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal"
 PAGES = (
     "index.html",
@@ -69,10 +69,15 @@ def main():
                 f"Expected at most one cleon-api-url meta tag in {source_path.name}."
             )
         (OUTPUT / source_path.name).write_text(built, encoding="utf-8")
-    for asset in ("portal.css", "portal.js"):
+    for asset in (
+        "styles.css",
+        "portal.css",
+        "portal.js",
+        "cleon-logo-for-dark-backgrounds.png",
+    ):
         source_asset = ROOT / asset
         output_asset = OUTPUT / asset
-        if source_asset.resolve() != output_asset.resolve():
+        if source_asset.is_file():
             shutil.copyfile(source_asset, output_asset)
     print(
         f"Built {len(PAGES)} website page(s); API URL "

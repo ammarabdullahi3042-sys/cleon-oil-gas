@@ -3,12 +3,12 @@
 
 <head>
   <meta charset="utf-8">
-  <title>CLEON Oil & Gas</title>
   <link rel="stylesheet" href="styles.css">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
   <title>CLEON Oil &amp; Gas | Flexible Energy. Reliable Service.</title>
-  <meta name="description" <link rel="preconnect" href="https://fonts.googleapis.com">
+  <meta name="description" content="CLEON Oil &amp; Gas delivers reliable fuel retail, energy supply and station operations across Nigeria.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Instrument+Sans:wght@400;500;600&display=swap"
@@ -891,42 +891,6 @@
       font-size: .8rem
     }
 
-    .portal-profit-chart {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
-      gap: 10px;
-      margin: 10px 0 20px
-    }
-
-    .portal-profit-item {
-      min-width: 0;
-      padding: 10px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px
-    }
-
-    .portal-profit-item span,
-    .portal-profit-item strong {
-      display: block;
-      font-size: .82rem;
-      overflow-wrap: anywhere
-    }
-
-    .portal-profit-track {
-      height: 8px;
-      background: var(--bg2);
-      border-radius: 4px;
-      margin: 8px 0
-    }
-
-    .portal-profit-track i {
-      display: block;
-      height: 100%;
-      border-radius: 4px;
-      background: var(--gold)
-    }
-
     .portal-summary-kpis {
       margin-top: 8px
     }
@@ -1129,44 +1093,50 @@
     #portal-summary-kpis .kpi span { color: #dbeafe; font-weight: 700 }
     #portal-summary-kpis .kpi b { font-size: 1rem; overflow-wrap: anywhere }
 
-    #portal-profit-chart {
+    .portal-profit-chart {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 8px;
-      min-height: 235px;
-      padding: 14px 12px 8px;
+      gap: 10px;
+      min-height: 220px;
+      margin: 12px 0 20px;
+      padding: 12px 14px;
+      border: 1px solid #2b3a50;
       border-radius: 12px;
-      background: #182538
+      background: linear-gradient(145deg, #182538, #121d2d)
     }
     .portal-chart-item {
-      display: grid;
-      grid-template-rows: 24px minmax(105px, 1fr) 42px;
+      position: relative;
+      display: flex;
       min-width: 0;
+      min-height: 194px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       text-align: center
     }
-    .portal-chart-item strong { font-size: .72rem; overflow-wrap: anywhere }
+    .portal-chart-item strong { color: var(--chart-color); font-size: .76rem; overflow-wrap: anywhere }
     .portal-chart-plot {
       position: relative;
-      min-height: 105px;
-      border-bottom: 1px solid #2a3749
-    }
-    .portal-chart-plot::after {
-      position: absolute;
-      top: 50%;
-      right: 0;
-      left: 0;
-      height: 1px;
-      background: #2a3749;
-      content: ""
+      width: 100%;
+      flex: 1;
+      min-height: 112px;
+      border-radius: 6px;
+      background: linear-gradient(to bottom, transparent 49.5%, #34465d 49.5%, #34465d 50.5%, transparent 50.5%)
     }
     .portal-chart-plot i {
       position: absolute;
-      right: 18%;
-      left: 18%;
-      z-index: 1;
-      min-height: 2px
+      right: 24%;
+      left: 24%;
+      height: var(--bar-height);
+      background: var(--chart-color);
+      border-radius: 6px;
+      box-shadow: 0 2px 12px color-mix(in srgb, var(--chart-color) 24%, transparent)
     }
-    .portal-chart-item span { align-self: end; color: #bfdbfe; font-size: .72rem }
+    .portal-chart-plot i.positive { bottom: 50%; border-radius: 6px 6px 2px 2px }
+    .portal-chart-plot i.negative { top: 50%; border-radius: 2px 2px 6px 6px }
+    .portal-chart-item span { color: #bfccdc; font-size: .73rem; line-height: 1.3 }
+    .portal-chart-empty { grid-column: 1 / -1; align-self: center; margin: 0; color: #a8b5c7; text-align: center }
 
     @media(max-width:1000px) {
       .portal-app-dashboard { grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr) }
@@ -1177,7 +1147,7 @@
       .portal-dashboard-bottom { grid-column: 1; grid-row: 4 }
       .portal-prices-card { grid-column: 2; grid-row: 3 / span 2 }
       #portal-summary-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) }
-      #portal-profit-chart { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+      .portal-profit-chart { grid-template-columns: repeat(3, minmax(0, 1fr)) }
       .portal-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) }
     }
     @media(max-width:620px) {
@@ -1190,7 +1160,7 @@
       .portal-fuel-card .portal-tank-levels { max-height: 300px }
       .portal-dashboard-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)) }
       #portal-summary-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) }
-      #portal-profit-chart { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+      .portal-profit-chart { grid-template-columns: repeat(2, minmax(0, 1fr)) }
       .portal-entry-grid { grid-template-columns: 1fr }
     }
 
@@ -1582,7 +1552,7 @@
             <div id="portal-summary" role="tabpanel" hidden>
               <div class="kpis portal-summary-kpis" id="portal-summary-kpis"></div>
               <h3 class="portal-subheading">Profit &amp; Loss Breakdown &amp; Tank Variance (NGN)</h3>
-              <div id="portal-profit-chart" class="portal-profit-chart"></div>
+              <div id="portal-profit-chart" class="portal-profit-chart" role="img" aria-label="Published profit and loss chart"><p class="portal-chart-empty">Loading published chart data…</p></div>
             </div>
             <div class="portal-table-wrap" id="portal-report-panel" role="tabpanel">
               <table class="portal-table" id="portal-report-table">
@@ -2159,34 +2129,40 @@
           card.append(title, amount);
           cards.appendChild(card);
         });
-        const values = summary.chart || [];
-        const labels = [
-          "Gross profit", "Expenses", "Attendant shorts",
-          "Delivery shortage", "Net profit",
-          "Dip variance less baseline cost",
-        ];
-        const colors = ["#22c55e", "#fbbf24", "#f87171", "#dc2626", "#15803d", "#facc15"];
+
         const chart = document.getElementById("portal-profit-chart");
+        const values = Array.isArray(summary.chart) ? summary.chart.map(Number) : [];
+        const labels = [
+          "Gross profit", "Expenses", "Attendant shorts", "Delivery shortage",
+          "Net profit", "Tank dip variance less baseline cost",
+        ];
+        const colors = ["#34d399", "#fbbf24", "#fb7185", "#ef4444", "#22c55e", "#fbbf24"];
         chart.replaceChildren();
-        const maximum = Math.max(...values.map(value => Math.abs(Number(value) || 0)), 1);
-        values.forEach((value, index) => {
+        const usable = values.filter(Number.isFinite);
+        if (!usable.length) {
+          const empty = document.createElement("p");
+          empty.className = "portal-chart-empty";
+          empty.textContent = "No profit and loss chart data has been published for this period.";
+          chart.appendChild(empty);
+          return;
+        }
+        const maximum = Math.max(1, ...usable.map(value => Math.abs(value)));
+        usable.forEach((value, index) => {
+          const label = labels[index] || `Value ${index + 1}`;
           const item = document.createElement("div");
           item.className = "portal-chart-item";
-          const title = document.createElement("span");
-          title.textContent = labels[index] || `Value ${index + 1}`;
+          item.style.setProperty("--chart-color", colors[index] || "#fbbf24");
+          item.setAttribute("aria-label", `${label}: ${value < 0 ? "minus " : ""}₦${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
+          const amount = document.createElement("strong");
+          amount.textContent = `${value < 0 ? "−" : ""}₦${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
           const plot = document.createElement("div");
           plot.className = "portal-chart-plot";
           const bar = document.createElement("i");
-          const numericValue = Number(value) || 0;
-          const barHeight = Math.max(Math.abs(numericValue) / maximum * 46, 1);
-          bar.style.height = `${barHeight}%`;
-          bar.style.background = colors[index] || "#facc15";
-          if (numericValue < 0) bar.style.top = "50%";
-          else bar.style.bottom = "50%";
+          bar.className = value < 0 ? "negative" : "positive";
+          bar.style.setProperty("--bar-height", `${Math.max(2, Math.abs(value) / maximum * 46)}%`);
           plot.appendChild(bar);
-          const amount = document.createElement("strong");
-          amount.textContent = `₦${numericValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-          amount.style.color = colors[index] || "#facc15";
+          const title = document.createElement("span");
+          title.textContent = label;
           item.append(amount, plot, title);
           chart.appendChild(item);
         });

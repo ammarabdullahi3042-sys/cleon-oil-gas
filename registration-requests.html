@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="cleon-api-url" content="https://efpocgthifwgzgnuwgae.supabase.co/functions/v1/cleon-portal">
   <title>Account requests | CLEON</title>
-  <link rel="stylesheet" href="portal.css?v=128">
+  <link rel="stylesheet" href="portal.css?v=132">
 </head>
 <body>
-  <header class="site-header"><a class="brand" href="index.html" aria-label="CLEON Oil and Gas home"><img class="brand-logo" src="cleon-logo-for-dark-backgrounds.png" alt="CLEON Oil &amp; Gas"></a><nav><a href="index.html">Home</a><a href="login.html">Sign in</a></nav></header>
+  <header class="site-header"><a class="brand" href="index.html" aria-label="CLEON Oil and Gas home"><img class="brand-logo" src="cleon-logo-for-dark-backgrounds.png" alt="CLEON Oil &amp; Gas"></a><nav aria-label="Public navigation"><a href="index.html">Home</a><a href="login.html">Sign in</a></nav></header>
   <main class="wrap"><section class="panel"><p class="eyebrow">Super admin</p><h1>Account requests</h1><p class="muted">Review signup requests and grant the requested member, staff, or admin role. Only super admins can approve accounts.</p><button id="load" class="button">Refresh requests</button><p id="status" class="status" role="status" aria-live="polite"></p><div id="requests"></div></section></main>
   <script>
   const api=document.querySelector('meta[name="cleon-api-url"]').content.replace(/\/+$/,'');
